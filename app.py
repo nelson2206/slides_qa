@@ -23,6 +23,7 @@ from qa import (
     severity_for,
 )
 from renderer import cache_key_for, render
+from sections import detect_sections
 
 
 # ---------------------------------------------------------------------------
@@ -237,18 +238,55 @@ else:
 
 slides_to_process = deck["slide_count"]
 skip_roles: set[str] | None = None
+skip_slide_numbers: set[int] = set()
 visual_enabled = False
 workers = 6
 deck_to_run = deck
 est = None
+deck_sections = detect_sections(deck)
 
 if mode == "full":
     st.markdown("")
     styles.section_label("Opciones de la corrida")
+
+    # Section picker — only if the deck has a clear index (≥2 dividers)
+    if deck_sections:
+        n_auto_skip = sum(1 for s in deck_sections if s.get("auto_skip"))
+        hint = (
+            f'Detecté <strong>{len(deck_sections)} secciones</strong> en el deck. '
+            'Desmarcá las que no querés analizar — sus slides se van a saltear sin gastar tokens.'
+        )
+        if n_auto_skip:
+            hint += (
+                f' <strong>{n_auto_skip}</strong> arrancan desmarcadas '
+                '(carátula, confidencialidad, índice, referencias, CVs, cierre — boilerplate típico).'
+            )
+        st.markdown(
+            f'<p class="qa-section-picker-hint">{hint}</p>',
+            unsafe_allow_html=True,
+        )
+        sec_cols = st.columns(min(3, len(deck_sections)))
+        section_selected: list[bool] = []
+        for i, sec in enumerate(deck_sections):
+            with sec_cols[i % len(sec_cols)]:
+                name = sec["name"]
+                rng = f"{sec['start']}–{sec['end']}" if sec["start"] != sec["end"] else str(sec["start"])
+                tag = " · boilerplate" if sec.get("auto_skip") else ""
+                label = f"{name} · slides {rng} ({len(sec['slide_numbers'])}){tag}"
+                default_checked = not sec.get("auto_skip", False)
+                section_selected.append(
+                    st.checkbox(label, value=default_checked, key=f"sec_{i}")
+                )
+        # Slides whose section is unchecked go to the skip set
+        for i, sec in enumerate(deck_sections):
+            if not section_selected[i]:
+                skip_slide_numbers.update(sec["slide_numbers"])
+        st.markdown("")
+
     o1, o2 = st.columns(2)
     with o1:
         analyze_all = st.checkbox(
-            "Evaluar todos los slides (sin skip)",
+            "Evaluar todos los slides (sin skip por role)",
             value=False,
             help=f"Por defecto se saltean {sorted(DEFAULT_SKIP_ROLES)}.",
         )
@@ -278,9 +316,13 @@ if mode == "full":
     will_skip = sum(
         1 for s in deck_to_run["slides"]
         if classify_slide_role(s) in (skip_roles or set())
+        or s["slide_number"] in skip_slide_numbers
     )
     will_visual = (
-        sum(1 for s in deck_to_run["slides"] if s.get("has_visuals"))
+        sum(
+            1 for s in deck_to_run["slides"]
+            if s.get("has_visuals") and s["slide_number"] not in skip_slide_numbers
+        )
         if visual_enabled else 0
     )
 
@@ -350,6 +392,7 @@ if run_button:
             provider=selected_provider,
             max_workers=workers,
             skip_roles=skip_roles,
+            skip_slide_numbers=skip_slide_numbers or None,
             visual_analysis=visual_enabled,
             images_by_slide=images_by_slide or {},
         )
@@ -458,26 +501,61 @@ for s in slides:
 
 # Top metrics
 st.markdown("---")
-provider_label = PROVIDER_LABELS.get(result.get("provider", ""), result.get("provider", "—"))
+provider_raw = result.get("provider", "")
+provider_label = PROVIDER_LABELS.get(provider_raw, provider_raw)
+mode_label = "Modo local" if result["mode"] == "local" else f"{provider_label} · modo full"
+skipped_count = len(overview.get("skipped_slides", []))
+meta_bits = [mode_label, f"{total} slides"]
+if skipped_count:
+    meta_bits.append(f"{skipped_count} skipped")
+
 st.markdown(f"## {file_name}")
-st.caption(f"Provider · {provider_label}  ·  Modo · {result['mode']}")
+st.caption("  ·  ".join(meta_bits))
 
-m1, m2, m3, m4, m5 = st.columns(5)
-m1.metric("Slides", total)
-m2.metric(f"{SEVERITY_EMOJI['critical']} Critical", sev_counts["critical"])
-m3.metric(f"{SEVERITY_EMOJI['warning']} Warning", sev_counts["warning"])
-m4.metric(f"{SEVERITY_EMOJI['nit']} Nit", sev_counts["nit"])
+# Cost card content
 if "actual_cost" in result:
-    m5.metric("Costo real", f"${result['actual_cost']['total_usd']:.3f}")
+    cost_value = f"${result['actual_cost']['total_usd']:.3f}"
+    cost_sub = "real"
 else:
-    m5.metric("Costo", "$0 · local")
+    cost_value = "$0"
+    cost_sub = "local · sin API"
 
-st.caption(
-    f"Score promedio · **{avg_score:.1f}**/10  ·  "
-    f"{SEVERITY_EMOJI['ok']} OK · {sev_counts['ok']}"
-    + (f"  ·  Skipped · {len(overview.get('skipped_slides', []))}"
-       if overview.get('skipped_slides') else "")
-)
+styles.summary_cards([
+    {
+        "label": "Score promedio",
+        "value": f"{avg_score:.1f}",
+        "denom": "/10",
+        "sub": f"{sev_counts['ok']} OK · {total} slides",
+        "variant": "score",
+    },
+    {
+        "label": "Critical",
+        "value": str(sev_counts["critical"]),
+        "sub": "slides bloqueantes" if sev_counts["critical"] else "ninguno",
+        "variant": "sev-critical",
+        "empty": sev_counts["critical"] == 0,
+    },
+    {
+        "label": "Warning",
+        "value": str(sev_counts["warning"]),
+        "sub": "issues a revisar" if sev_counts["warning"] else "ninguno",
+        "variant": "sev-warning",
+        "empty": sev_counts["warning"] == 0,
+    },
+    {
+        "label": "Nit",
+        "value": str(sev_counts["nit"]),
+        "sub": "mejoras menores" if sev_counts["nit"] else "ninguno",
+        "variant": "sev-nit",
+        "empty": sev_counts["nit"] == 0,
+    },
+    {
+        "label": "Costo",
+        "value": cost_value,
+        "sub": cost_sub,
+        "variant": "cost",
+    },
+])
 
 
 # Cost estimate vs actual (if available)
@@ -501,8 +579,11 @@ if "actual_cost" in result and est is not None:
     )
 
 
-# Severity filter
-st.markdown("")
+# ───────── Análisis general del deck (promoted from expander) ─────────
+styles.overview_panel(overview, sev_counts, total)
+
+
+# ───────── Filtros ─────────
 styles.section_label("Filtrar por severidad")
 fcols = st.columns(4)
 show_sev: dict[str, bool] = {}
@@ -511,57 +592,60 @@ for i, sev in enumerate(SEVERITY_ORDER):
         label = f"{SEVERITY_EMOJI[sev]} {SEVERITY_LABELS[sev]} ({sev_counts[sev]})"
         show_sev[sev] = st.checkbox(label, value=True, key=f"sev_{sev}")
 
-ff1, ff2 = st.columns(2)
-hide_skipped = ff1.checkbox("Ocultar skipped", value=False)
-role_filter = ff2.multiselect("Filtrar role", options=sorted(role_counts.keys()), default=[])
+ff1, ff2 = st.columns([3, 1])
+role_filter = ff1.multiselect(
+    "Filtrar por role",
+    options=sorted(role_counts.keys()),
+    default=[],
+    placeholder="Todos los roles",
+)
+with ff2:
+    hide_skipped = st.checkbox("Ocultar skipped", value=False)
 
 
-# Per-slide cards
+# ───────── Slide cards filtered + grouped by section ─────────
 visible = [
     s for s in slides
     if show_sev.get(s.get("severity") or severity_for(s.get("score")), False)
     and (not hide_skipped or not s.get("_skipped"))
     and (not role_filter or s.get("role") in role_filter)
 ]
-st.markdown("")
 st.caption(f"Mostrando {len(visible)} de {total} slides")
 st.markdown("")
 
-for slide in visible:
-    thumb_bytes = thumbs.get(slide["slide_number"]) if thumbs else None
-    st.markdown(
-        styles.slide_card_html(slide, thumb_bytes=thumb_bytes),
-        unsafe_allow_html=True,
-    )
+# Re-detect sections from the result's deck snapshot (sections are inherent to the input deck)
+result_sections = detect_sections({"slides": slides})
 
+# Slide navigator (sticky)
+if visible:
+    styles.slide_navigator(visible, sections=result_sections)
 
-# ---------------------------------------------------------------------------
-# Secondary sections — collapsed expanders at the bottom
-# ---------------------------------------------------------------------------
-
-# Storyline
-if overview.get("storyline_coherent") is not None:
-    with st.expander("Storyline cross-slide", expanded=False):
-        coh = overview.get("storyline_coherent")
+if result_sections:
+    visible_by_n = {s["slide_number"]: s for s in visible}
+    for sec in result_sections:
+        sec_slides = [visible_by_n[n] for n in sec["slide_numbers"] if n in visible_by_n]
+        if not sec_slides:
+            continue
+        styles.section_divider(sec, total)
+        for slide in sec_slides:
+            thumb_bytes = thumbs.get(slide["slide_number"]) if thumbs else None
+            st.markdown(
+                styles.slide_card_html(slide, thumb_bytes=thumb_bytes),
+                unsafe_allow_html=True,
+            )
+else:
+    for slide in visible:
+        thumb_bytes = thumbs.get(slide["slide_number"]) if thumbs else None
         st.markdown(
-            "**Storyline coherente:** "
-            + (styles.pill("Sí", "ok") if coh else styles.pill("No", "crit")),
+            styles.slide_card_html(slide, thumb_bytes=thumb_bytes),
             unsafe_allow_html=True,
         )
-        st.markdown(overview.get("storyline_notes", "—"))
-        st.caption(
-            f"Filename ↔ títulos · {overview.get('filename_subtitle_alignment', '—')}"
-        )
-        cross = overview.get("cross_slide_issues") or []
-        if cross:
-            st.markdown(f"**Issues cross-slide ({len(cross)}):**")
-            for issue in cross:
-                slides_str = ", ".join(str(s) for s in issue["slide_numbers"])
-                st.markdown(f"- Slides **{slides_str}** · {issue['issue']}")
-        else:
-            st.success("Sin issues cross-slide.")
 
-# Visual section (only if enabled)
+
+# ---------------------------------------------------------------------------
+# Visual analysis (only if enabled — kept as expander, it's a technical drill-down)
+# ---------------------------------------------------------------------------
+
 if overview.get("visual_analysis_enabled"):
     visual_slides_data = [s for s in slides if s.get("visual")]
     if visual_slides_data:

@@ -495,6 +495,463 @@ hr {
 .qa-cost-panel-accent { color: var(--accent); }
 
 /* ──────────────────────────────────────────────
+   Summary cards row (results header KPIs)
+   ────────────────────────────────────────────── */
+.qa-summary-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin: 0.4rem 0 1.2rem 0;
+}
+@media (max-width: 1100px) {
+  .qa-summary-row { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 720px) {
+  .qa-summary-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+.qa-summary-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 180ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 180ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.qa-summary-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(61,13,26,0.06);
+}
+.qa-summary-card-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.qa-summary-card-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 100px;
+  display: inline-block;
+  background: rgba(61,13,26,0.2);
+}
+.qa-summary-card-value {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  color: var(--text);
+}
+.qa-summary-card-sub {
+  margin-top: 7px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Severity-tinted variants (only when count > 0) */
+.qa-summary-card.sev-critical {
+  background: linear-gradient(178deg, #fef0f0 0%, #faf6f1 95%);
+  border-color: rgba(185,28,28,0.22);
+}
+.qa-summary-card.sev-critical .qa-summary-card-dot { background: #b91c1c; box-shadow: 0 0 0 3px rgba(185,28,28,0.10); }
+.qa-summary-card.sev-critical .qa-summary-card-value { color: #7f1414; }
+
+.qa-summary-card.sev-warning {
+  background: linear-gradient(178deg, #fef6e3 0%, #faf6f1 95%);
+  border-color: rgba(180,83,9,0.22);
+}
+.qa-summary-card.sev-warning .qa-summary-card-dot { background: #b45309; box-shadow: 0 0 0 3px rgba(180,83,9,0.10); }
+.qa-summary-card.sev-warning .qa-summary-card-value { color: #7a3805; }
+
+.qa-summary-card.sev-nit {
+  background: linear-gradient(178deg, #eef6fc 0%, #faf6f1 95%);
+  border-color: rgba(7,89,133,0.20);
+}
+.qa-summary-card.sev-nit .qa-summary-card-dot { background: #075985; box-shadow: 0 0 0 3px rgba(7,89,133,0.10); }
+.qa-summary-card.sev-nit .qa-summary-card-value { color: #044067; }
+
+.qa-summary-card.sev-ok {
+  background: linear-gradient(178deg, #ecfdf4 0%, #faf6f1 95%);
+  border-color: rgba(4,120,87,0.20);
+}
+.qa-summary-card.sev-ok .qa-summary-card-dot { background: #047857; box-shadow: 0 0 0 3px rgba(4,120,87,0.10); }
+.qa-summary-card.sev-ok .qa-summary-card-value { color: #035d44; }
+
+/* Empty state (count = 0) — neutral, no tint */
+.qa-summary-card.empty {
+  background: var(--surface-2);
+  border-color: var(--border-soft);
+}
+.qa-summary-card.empty .qa-summary-card-value {
+  color: rgba(61,13,26,0.30);
+}
+.qa-summary-card.empty .qa-summary-card-dot {
+  background: rgba(61,13,26,0.20);
+  box-shadow: none;
+}
+
+/* Score card — most prominent (burgundy + glow) */
+.qa-summary-card.score {
+  background: linear-gradient(150deg, #3d0d1a 0%, #5c1428 65%, #3d0d1a 100%);
+  border-color: rgba(61,13,26,0.30);
+  color: white;
+}
+.qa-summary-card.score::before {
+  content: "";
+  position: absolute;
+  top: -30px; right: -20px; width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(233,78,119,0.32) 0%, transparent 65%);
+  pointer-events: none;
+}
+.qa-summary-card.score .qa-summary-card-label { color: rgba(255,255,255,0.70); }
+.qa-summary-card.score .qa-summary-card-value { color: white; position: relative; z-index: 1; }
+.qa-summary-card.score .qa-summary-card-value .qa-summary-card-denom {
+  font-size: 1.1rem;
+  font-weight: 600;
+  opacity: 0.55;
+  margin-left: 2px;
+}
+.qa-summary-card.score .qa-summary-card-sub { color: rgba(255,255,255,0.70); }
+.qa-summary-card.score .qa-summary-card-dot {
+  background: var(--accent);
+  box-shadow: 0 0 12px rgba(233,78,119,0.5);
+}
+
+/* Cost card — subtle warm tint */
+.qa-summary-card.cost {
+  background: linear-gradient(178deg, var(--surface-2) 0%, #f4ece4 100%);
+}
+
+/* ──────────────────────────────────────────────
+   Slide navigator — horizontal timeline track
+   Dark panel with one colored brick per slide. Section names labeled below.
+   ────────────────────────────────────────────── */
+.qa-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: linear-gradient(180deg, #14040a 0%, #1f0612 100%);
+  border-radius: var(--radius);
+  padding: 12px 14px 10px;
+  margin: 0.4rem 0 1.4rem 0;
+  box-shadow: 0 6px 24px rgba(20, 4, 10, 0.22);
+  border: 1px solid rgba(255,255,255,0.04);
+}
+.qa-nav-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.qa-nav-title {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  font-weight: 700;
+  color: rgba(255,255,255,0.55);
+}
+.qa-nav-legend {
+  display: inline-flex;
+  gap: 10px;
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.55);
+}
+.qa-nav-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.qa-nav-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.qa-nav-track {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.18) transparent;
+}
+.qa-nav-track::-webkit-scrollbar { height: 5px; }
+.qa-nav-track::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.16);
+  border-radius: 3px;
+}
+
+.qa-nav-section-group {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  min-width: 0;
+}
+/* Section separator — thin vertical gap between groups */
+.qa-nav-sep {
+  flex: 0 0 6px;
+  align-self: stretch;
+  background: transparent;
+  position: relative;
+}
+.qa-nav-sep::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255,255,255,0.16);
+}
+
+.qa-nav-block {
+  flex: 1 1 0;
+  min-width: 14px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-decoration: none !important;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: transform 110ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 140ms ease, filter 100ms ease;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  position: relative;
+  user-select: none;
+}
+.qa-nav-block:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.15);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  z-index: 3;
+}
+.qa-nav-block:active { transform: translateY(0); }
+
+.qa-nav-block.sev-critical { background: #e94e77; color: white !important; }
+.qa-nav-block.sev-warning  { background: #f0a429; color: #2e0a16 !important; }
+.qa-nav-block.sev-nit      { background: #4b8ef0; color: white !important; }
+.qa-nav-block.sev-ok       { background: #2dba8a; color: white !important; }
+.qa-nav-block.skipped {
+  background: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.45) !important;
+  font-weight: 600;
+}
+
+/* Section labels row — proportionally aligned under their block group */
+.qa-nav-labels {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 6px;
+  gap: 0;
+  width: 100%;
+}
+.qa-nav-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 0 4px;
+  overflow: hidden;
+}
+.qa-nav-label-name {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.75);
+  letter-spacing: 0.01em;
+  text-transform: capitalize;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 100%;
+  line-height: 1.2;
+}
+.qa-nav-label-range {
+  font-size: 0.58rem;
+  color: rgba(255,255,255,0.42);
+  font-weight: 500;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  margin-top: 1px;
+}
+.qa-nav-label-sep {
+  flex: 0 0 6px;
+}
+
+/* Section divider above slide cards */
+.qa-section-divider {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 1.6rem 0 0.6rem 0;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed rgba(61,13,26,0.16);
+  scroll-margin-top: 90px;
+}
+.qa-section-divider-num {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  font-weight: 700;
+  color: var(--accent);
+}
+.qa-section-divider-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  flex: 1;
+}
+.qa-section-divider-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Anchor offset on slide cards so sticky nav doesn't cover them */
+.qa-slide-card { scroll-margin-top: 90px; }
+
+/* ──────────────────────────────────────────────
+   Deck overview panel — promoted from expander
+   ────────────────────────────────────────────── */
+.qa-overview {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  margin: 0.4rem 0 1.6rem 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 28px;
+}
+@media (max-width: 900px) {
+  .qa-overview { grid-template-columns: 1fr; }
+}
+.qa-overview-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+}
+.qa-overview-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.qa-overview-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qa-overview-label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  font-weight: 700;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.qa-overview-value {
+  font-size: 0.92rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+.qa-overview-value strong { font-weight: 700; }
+.qa-overview-issues {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qa-overview-issue {
+  font-size: 0.82rem;
+  color: var(--text);
+  background: rgba(255,255,255,0.5);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 7px 10px;
+  line-height: 1.4;
+}
+.qa-overview-issue-slides {
+  font-weight: 700;
+  color: var(--accent);
+  margin-right: 6px;
+}
+
+/* ──────────────────────────────────────────────
+   Section picker (pre-run) — section toggle cards
+   ────────────────────────────────────────────── */
+.qa-section-picker-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0 0 0.6rem 0;
+  line-height: 1.5;
+}
+
+/* ──────────────────────────────────────────────
+   Filter pills — restyle native st.checkbox as pill toggles
+   Applied globally; both filter rows use checkboxes.
+   ────────────────────────────────────────────── */
+[data-testid="stCheckbox"] > label {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 7px 14px !important;
+  border-radius: 100px !important;
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border-soft) !important;
+  cursor: pointer !important;
+  transition: background 160ms ease, border-color 160ms ease, transform 100ms ease !important;
+}
+[data-testid="stCheckbox"] > label:hover {
+  background: var(--surface-3) !important;
+  border-color: rgba(61,13,26,0.12) !important;
+}
+[data-testid="stCheckbox"] > label:active {
+  transform: scale(0.98);
+}
+/* Hide the native checkbox marker — pill IS the affordance */
+[data-testid="stCheckbox"] [data-baseweb="checkbox"] > div:first-child,
+[data-testid="stCheckbox"] [role="checkbox"] {
+  display: none !important;
+}
+[data-testid="stCheckbox"] [data-testid="stMarkdownContainer"] p {
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  color: var(--text) !important;
+}
+/* Checked state — accent fill */
+[data-testid="stCheckbox"]:has(input:checked) > label {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+[data-testid="stCheckbox"]:has(input:checked) > label p {
+  color: white !important;
+}
+
+/* ──────────────────────────────────────────────
    Check block — used in per-slide cards
    ────────────────────────────────────────────── */
 .qa-check {
@@ -946,6 +1403,251 @@ def pill(text: str, variant: str = "muted") -> str:
     return f'<span class="qa-pill {variant}">{text}</span>'
 
 
+def summary_cards(cards: list[dict]) -> None:
+    """Render a row of KPI cards.
+
+    Each card dict accepts:
+      - label:   uppercase label (e.g. "CRITICAL")
+      - value:   big number/text (e.g. "10" or "7.7")
+      - denom:   optional small denominator rendered after value (e.g. "/10")
+      - sub:     optional small caption under the value (HTML allowed)
+      - variant: one of: score | cost | sev-critical | sev-warning | sev-nit | sev-ok
+      - empty:   bool — if True, applies neutral "empty" tint (for zero counts)
+    """
+    items = []
+    for c in cards:
+        variant = c.get("variant", "")
+        if c.get("empty"):
+            variant = f"{variant} empty".strip()
+        denom_html = (
+            f'<span class="qa-summary-card-denom">{_escape_html(c["denom"])}</span>'
+            if c.get("denom") else ""
+        )
+        sub_html = (
+            f'<div class="qa-summary-card-sub">{c["sub"]}</div>'
+            if c.get("sub") else ""
+        )
+        items.append(
+            f'<div class="qa-summary-card {variant}">'
+            f'<div class="qa-summary-card-label"><span class="qa-summary-card-dot"></span>{_escape_html(c["label"])}</div>'
+            f'<div class="qa-summary-card-value">{_escape_html(c["value"])}{denom_html}</div>'
+            f'{sub_html}'
+            '</div>'
+        )
+    st.markdown(
+        f'<div class="qa-summary-row">{"".join(items)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def slide_navigator(
+    slides: list[dict],
+    sections: list[dict] | None = None,
+) -> None:
+    """Sticky timeline navigator: one colored block per slide.
+
+    When `sections` is provided, blocks are grouped contiguously with a thin
+    vertical separator between groups, and a labels row underneath aligns each
+    section name beneath its block group (proportional flex-grow).
+    """
+    def _block(slide: dict) -> str:
+        n = slide["slide_number"]
+        sev = slide.get("severity") or "nit"
+        score = slide.get("score")
+        title = (slide.get("action_title") or {}).get("current_title") or ""
+        if score is not None:
+            tooltip = f"Slide {n} · {score}/10 · {sev.upper()}"
+        else:
+            tooltip = f"Slide {n} · {sev.upper()}"
+        if title:
+            tooltip += f" — {title[:60]}"
+        skipped_cls = " skipped" if slide.get("_skipped") else ""
+        return (
+            f'<a class="qa-nav-block sev-{sev}{skipped_cls}" '
+            f'href="#qa-slide-{n}" title="{_escape_html(tooltip)}">{n}</a>'
+        )
+
+    slide_by_n = {s["slide_number"]: s for s in slides}
+    total = len(slides)
+
+    # Header
+    legend_html = (
+        '<span class="qa-nav-legend">'
+        '<span class="qa-nav-legend-item"><span class="qa-nav-legend-swatch" style="background:#e94e77"></span>Critical</span>'
+        '<span class="qa-nav-legend-item"><span class="qa-nav-legend-swatch" style="background:#f0a429"></span>Warning</span>'
+        '<span class="qa-nav-legend-item"><span class="qa-nav-legend-swatch" style="background:#4b8ef0"></span>Nit</span>'
+        '<span class="qa-nav-legend-item"><span class="qa-nav-legend-swatch" style="background:#2dba8a"></span>OK</span>'
+        '</span>'
+    )
+    if sections:
+        title_text = f"{total} slides · {len(sections)} secciones"
+    else:
+        title_text = f"{total} slides"
+    header_html = (
+        '<div class="qa-nav-header">'
+        f'<span class="qa-nav-title">{_escape_html(title_text)}</span>'
+        f'{legend_html}'
+        '</div>'
+    )
+
+    if sections:
+        # Build groups + alternating separators
+        groups: list[str] = []
+        labels: list[str] = []
+        for i, sec in enumerate(sections):
+            nums = [n for n in sec["slide_numbers"] if n in slide_by_n]
+            if not nums:
+                continue
+            count = len(nums)
+            blocks_html = "".join(_block(slide_by_n[n]) for n in nums)
+            groups.append(
+                f'<div class="qa-nav-section-group" style="flex: {count} {count} 0;">'
+                f'{blocks_html}'
+                '</div>'
+            )
+            range_text = (
+                f"{sec['start']}–{sec['end']}"
+                if sec["start"] != sec["end"]
+                else str(sec["start"])
+            )
+            labels.append(
+                f'<div class="qa-nav-label" style="flex: {count} {count} 0;">'
+                f'<span class="qa-nav-label-name">{_escape_html(sec["name"])}</span>'
+                f'<span class="qa-nav-label-range">{_escape_html(range_text)}</span>'
+                '</div>'
+            )
+
+        # Interleave with separators
+        track_html = '<div class="qa-nav-sep"></div>'.join(groups)
+        labels_html = '<div class="qa-nav-label-sep"></div>'.join(labels)
+        body = (
+            f'<div class="qa-nav-track">{track_html}</div>'
+            f'<div class="qa-nav-labels">{labels_html}</div>'
+        )
+    else:
+        blocks_html = "".join(_block(s) for s in slides)
+        body = (
+            f'<div class="qa-nav-track">'
+            f'<div class="qa-nav-section-group" style="flex: 1 1 0;">{blocks_html}</div>'
+            '</div>'
+        )
+
+    html = f'<div class="qa-nav">{header_html}{body}</div>'
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def section_divider(section: dict, total_slides: int) -> None:
+    """Section banner shown above the slide cards of that section."""
+    n_slides = len(section["slide_numbers"])
+    html = (
+        f'<div class="qa-section-divider" id="qa-section-{section["start"]}">'
+        f'<span class="qa-section-divider-num">Slides {section["start"]}–{section["end"]}</span>'
+        f'<span class="qa-section-divider-name">{_escape_html(section["name"])}</span>'
+        f'<span class="qa-section-divider-meta">{n_slides} de {total_slides}</span>'
+        '</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def overview_panel(overview: dict, sev_counts: dict[str, int], total: int) -> None:
+    """Promoted deck-level overview: storyline, filename alignment, cross-slide issues, footer consistency."""
+    blocks: list[str] = []
+
+    storyline_coh = overview.get("storyline_coherent")
+    if storyline_coh is True:
+        story_value = '<strong style="color: #047857;">✓ Sí</strong> · ' + _escape_html(overview.get("storyline_notes", ""))
+    elif storyline_coh is False:
+        story_value = '<strong style="color: #b91c1c;">✗ No</strong> · ' + _escape_html(overview.get("storyline_notes", ""))
+    elif overview.get("storyline_notes"):
+        story_value = _escape_html(overview["storyline_notes"])
+    else:
+        story_value = '<span style="color: var(--text-muted);">No evaluado (requiere modo full)</span>'
+
+    blocks.append(
+        '<div class="qa-overview-block">'
+        '<div class="qa-overview-label">Storyline cross-slide</div>'
+        f'<div class="qa-overview-value">{story_value}</div>'
+        '</div>'
+    )
+
+    filename_align = overview.get("filename_subtitle_alignment", "—")
+    blocks.append(
+        '<div class="qa-overview-block">'
+        '<div class="qa-overview-label">Filename ↔ títulos</div>'
+        f'<div class="qa-overview-value">{_escape_html(filename_align)}</div>'
+        '</div>'
+    )
+
+    footer_consistency = overview.get("footer_text_consistency_detail", {}) or {}
+    if footer_consistency.get("applicable"):
+        cov = footer_consistency.get("coverage_pct", 0)
+        if footer_consistency.get("ok"):
+            footer_value = f'<strong style="color: #047857;">✓ Consistente</strong> · {int(cov*100)}% cobertura'
+        else:
+            footer_value = f'<strong style="color: #b91c1c;">✗ Inconsistente</strong> · {int(cov*100)}% cobertura'
+    else:
+        footer_value = '<span style="color: var(--text-muted);">No aplica (deck sin pie de página)</span>'
+    blocks.append(
+        '<div class="qa-overview-block">'
+        '<div class="qa-overview-label">Pie de página · consistencia</div>'
+        f'<div class="qa-overview-value">{footer_value}</div>'
+        '</div>'
+    )
+
+    caps_detail = overview.get("footer_caps_detail", {}) or {}
+    if caps_detail.get("applicable"):
+        caps_value = (
+            '<strong style="color: #047857;">✓ Mayúsculas consistentes</strong>'
+            if caps_detail.get("ok")
+            else f'<strong style="color: #b45309;">✗ {len(caps_detail.get("outliers", []))} slides outlier</strong>'
+        )
+    else:
+        caps_value = '<span style="color: var(--text-muted);">No aplica</span>'
+    blocks.append(
+        '<div class="qa-overview-block">'
+        '<div class="qa-overview-label">Mayúsculas en pie</div>'
+        f'<div class="qa-overview-value">{caps_value}</div>'
+        '</div>'
+    )
+
+    cross = overview.get("cross_slide_issues") or []
+    if cross:
+        items = []
+        for issue in cross:
+            slides_str = ", ".join(str(s) for s in issue["slide_numbers"])
+            items.append(
+                f'<li class="qa-overview-issue">'
+                f'<span class="qa-overview-issue-slides">Slides {slides_str}</span>'
+                f'{_escape_html(issue["issue"])}'
+                '</li>'
+            )
+        blocks.append(
+            '<div class="qa-overview-block" style="grid-column: 1 / -1;">'
+            f'<div class="qa-overview-label">Issues cross-slide · {len(cross)}</div>'
+            f'<ul class="qa-overview-issues">{"".join(items)}</ul>'
+            '</div>'
+        )
+
+    skipped = overview.get("skipped_slides") or []
+    counts_value = (
+        f'<strong>{total}</strong> slides · '
+        f'{sev_counts.get("critical", 0)} critical · '
+        f'{sev_counts.get("warning", 0)} warning · '
+        f'{sev_counts.get("nit", 0)} nit · '
+        f'{sev_counts.get("ok", 0)} OK'
+        + (f' · {len(skipped)} skipped' if skipped else '')
+    )
+    header = (
+        '<div class="qa-overview-header">'
+        '<span class="qa-overview-title">Análisis general del deck</span>'
+        f'<span class="qa-overview-value" style="font-size: 0.82rem; color: var(--text-muted);">{counts_value}</span>'
+        '</div>'
+    )
+
+    html = f'<div class="qa-overview">{header}{"".join(blocks)}</div>'
+    st.markdown(html, unsafe_allow_html=True)
+
+
 def cost_panel(label: str, value: str, sub: str | None = None) -> None:
     """Burgundy panel for highlighted cost displays.
 
@@ -1101,30 +1803,73 @@ def slide_card_html(slide: dict, thumb_bytes: bytes | None = None) -> str:
 
     # Pie de página
     footer = slide["footer"]
+    exempt = footer.get("exempt")
+    align_outlier = footer.get("alignment_outlier")
     if not footer.get("present"):
-        f_icon, f_variant = "—", "na"
-        f_status = "Sin pie de página"
+        if exempt:
+            f_icon, f_variant = "—", "na"
+            f_status = f"No aplica · slide de tipo {role}"
+        else:
+            f_icon, f_variant = "—", "na"
+            f_status = "Sin pie de página"
     elif footer.get("matches_canonical") is False:
         f_icon, f_variant = "✗", "fail"
         f_status = "Texto distinto al canónico"
+    elif footer.get("aligned") is False and align_outlier:
+        f_icon, f_variant = "✗", "fail"
+        f_status = "Posición fuera del canónico del deck · " + " / ".join(
+            align_outlier.get("issues", [])
+        )
     elif footer.get("aligned") is False:
         f_icon, f_variant = "✗", "fail"
-        f_status = "Posición / alineación off"
+        f_status = "Posición fuera del canónico del deck"
     else:
         f_icon, f_variant = "✓", "ok"
         f_status = "Canónico OK"
     canonical = footer.get("canonical_text")
     footer_suggestion = None
-    if not footer.get("present") and canonical:
+    if not footer.get("present") and canonical and not exempt:
         footer_suggestion = f'Agregar el footer canónico: "{canonical}"'
     elif footer.get("matches_canonical") is False and canonical:
         footer_suggestion = f'Reemplazar por el canónico: "{canonical}"'
+    elif align_outlier:
+        c_top = align_outlier.get("canonical_top_in")
+        c_left = align_outlier.get("canonical_left_in")
+        target = []
+        if c_top is not None:
+            target.append(f"top {c_top:.2f}″")
+        if c_left is not None:
+            target.append(f"left {c_left:.2f}″")
+        coords = " · ".join(target) if target else "la posición canónica"
+        footer_suggestion = (
+            f"Mové el footer a {coords} (mediana de los pies del deck) "
+            "o copiá el footer de un slide ya alineado."
+        )
     rows.append(_checklist_row_html(
         f_icon, f_variant, "Pie de página",
         f_status,
         current=footer.get("current_footer") if footer.get("present") else None,
         suggestion=footer_suggestion,
     ))
+
+    # Tamaño mínimo de fuente
+    mfs = slide.get("min_font_size") or {}
+    if mfs.get("applicable"):
+        icon, variant = _icon_for(mfs.get("ok"))
+        rows.append(_checklist_row_html(
+            icon, variant, f"Tamaño mínimo de fuente (≥{int(mfs.get('min_required_pt', 9))}pt)",
+            mfs.get("notes", "—"),
+            suggestion=mfs.get("suggestion"),
+        ))
+
+    # Densidad de texto — slide muy cargada
+    td = slide.get("text_density") or {}
+    if td.get("applicable") and not td.get("ok"):
+        rows.append(_checklist_row_html(
+            "✗", "fail", "Densidad de texto",
+            td.get("notes", "—"),
+            suggestion=td.get("suggestion"),
+        ))
 
     # Visual (if present)
     if slide.get("visual"):
@@ -1156,7 +1901,7 @@ def slide_card_html(slide: dict, thumb_bytes: bytes | None = None) -> str:
     checks_html = '<div class="qa-checklist">' + "".join(rows) + '</div>'
 
     return (
-        f'<div class="qa-slide-card sev-{sev}">'
+        f'<div class="qa-slide-card sev-{sev}" id="qa-slide-{n}">'
         '<div class="qa-slide-header">'
         f'<span class="qa-slide-sev">{sev_emoji}</span>'
         f'<span class="qa-slide-num">Slide {n}</span>'
