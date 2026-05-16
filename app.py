@@ -116,7 +116,10 @@ if uploaded is None:
     for k in list(st.session_state.keys()):
         if k.startswith(("qa_result", "qa_est", "qa_file_hash", "qa_thumbs")):
             del st.session_state[k]
-    styles.hide_nav()
+    # Defensive getattr: hide_nav was added recently; on Streamlit Cloud the
+    # styles module may be cached from before this commit on first request
+    # after deploy. Fall back to no-op so the app doesn't crash.
+    getattr(styles, "hide_nav", lambda: None)()
     st.markdown("")
     st.info("Esperando un `.pptx`. El modo local no gasta tokens.")
     st.stop()
@@ -197,7 +200,7 @@ def used_mode_safe():
 
 # Compact deck summary
 st.markdown("")
-styles.scroll_anchor("qa-after-upload")
+getattr(styles, "scroll_anchor", lambda *a, **kw: None)("qa-after-upload")
 c1, c2 = st.columns(2)
 c1.metric("Slides", deck["slide_count"])
 c2.metric("Con imágenes", n_visuals)
@@ -205,7 +208,7 @@ c2.metric("Con imágenes", n_visuals)
 # Auto-scroll once per uploaded file: bring the metrics + run button into view.
 if st.session_state.get("_scrolled_after_upload") != file_hash:
     st.session_state["_scrolled_after_upload"] = file_hash
-    styles.auto_scroll_to("qa-after-upload")
+    getattr(styles, "auto_scroll_to", lambda *a, **kw: None)("qa-after-upload")
 
 
 # ---------------------------------------------------------------------------
@@ -397,14 +400,14 @@ if run_button:
     )
 
     st.markdown("---")
-    styles.scroll_anchor("qa-progress")
+    getattr(styles, "scroll_anchor", lambda *a, **kw: None)("qa-progress")
     styles.section_label("Progreso")
     status_box = st.empty()
     progress_bar = st.empty()
     live_table = st.empty()
 
     # Bring the progress section into view as soon as the run starts.
-    styles.auto_scroll_to("qa-progress")
+    getattr(styles, "auto_scroll_to", lambda *a, **kw: None)("qa-progress")
 
     completed_slides: list[dict] = []
     result_obj = None
@@ -476,7 +479,7 @@ result = st.session_state.get("qa_result")
 if result is None:
     # No results yet → ensure the floating navigator isn't lingering from a
     # previous file's session.
-    styles.hide_nav()
+    getattr(styles, "hide_nav", lambda: None)()
     st.stop()
 
 if est is None:
@@ -506,7 +509,7 @@ for s in slides:
 
 # Top metrics
 st.markdown("---")
-styles.scroll_anchor("qa-results")
+getattr(styles, "scroll_anchor", lambda *a, **kw: None)("qa-results")
 provider_raw = result.get("provider", "")
 provider_label = PROVIDER_LABELS.get(provider_raw, provider_raw)
 mode_label = "Modo local" if result["mode"] == "local" else f"{provider_label} · modo full"
@@ -519,7 +522,7 @@ if skipped_count:
 _results_marker = f"{file_hash}__{result.get('mode', '')}"
 if st.session_state.get("_scrolled_to_results") != _results_marker:
     st.session_state["_scrolled_to_results"] = _results_marker
-    styles.auto_scroll_to("qa-results")
+    getattr(styles, "auto_scroll_to", lambda *a, **kw: None)("qa-results")
 
 st.markdown(f"## {file_name}")
 st.caption("  ·  ".join(meta_bits))
@@ -597,8 +600,8 @@ styles.overview_panel(overview, sev_counts, total)
 # Sentinel that drives navigator visibility. Placed right after the overview
 # so the navigator appears the moment the user scrolls past it, and hides
 # again when they scroll back up to it.
-styles.scroll_anchor("qa-nav-trigger", top_margin_px=0)
-styles.nav_visibility_observer("qa-nav-trigger")
+getattr(styles, "scroll_anchor", lambda *a, **kw: None)("qa-nav-trigger", top_margin_px=0)
+getattr(styles, "nav_visibility_observer", lambda *a, **kw: None)("qa-nav-trigger")
 
 
 # ───────── Filtros ─────────
