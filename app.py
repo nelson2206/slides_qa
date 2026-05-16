@@ -70,8 +70,8 @@ st.markdown(
 styles.hero(
     "El detective de tus decks",
     "Holmes",
-    "Subí un <code>.pptx</code> y Holmes lo investiga slide por slide con criterio "
-    "de senior MBB. Modo local gratis · análisis semántico con Claude o GPT-4o.",
+    "Minsaiter, subí un <code>.pptx</code> y Holmes revisará cada slide con IA "
+    "para darte feedback.",
     chips=["Action titles", "So-what por slide", "Pie de página", "Storyline", "Análisis visual"],
 )
 
