@@ -543,10 +543,6 @@ sev_counts: dict[str, int] = {s: 0 for s in SEVERITY_ORDER}
 for s in slides:
     sev = s.get("severity") or severity_for(s.get("score"))
     sev_counts[sev] = sev_counts.get(sev, 0) + 1
-role_counts: dict[str, int] = {}
-for s in slides:
-    r = s.get("role", "unknown")
-    role_counts[r] = role_counts.get(r, 0) + 1
 
 
 # Top metrics
@@ -655,15 +651,7 @@ for i, sev in enumerate(SEVERITY_ORDER):
         label = f"{SEVERITY_EMOJI[sev]} {SEVERITY_LABELS[sev]} ({sev_counts[sev]})"
         show_sev[sev] = st.checkbox(label, value=True, key=f"sev_{sev}")
 
-ff1, ff2 = st.columns([3, 1])
-role_filter = ff1.multiselect(
-    "Filtrar por role",
-    options=sorted(role_counts.keys()),
-    default=[],
-    placeholder="Todos los roles",
-)
-with ff2:
-    hide_skipped = st.checkbox("Ocultar skipped", value=False)
+hide_skipped = st.checkbox("Ocultar skipped", value=False)
 
 
 # ───────── Slide cards filtered + grouped by section ─────────
@@ -671,7 +659,6 @@ visible = [
     s for s in slides
     if show_sev.get(s.get("severity") or severity_for(s.get("score")), False)
     and (not hide_skipped or not s.get("_skipped"))
-    and (not role_filter or s.get("role") in role_filter)
 ]
 st.caption(f"Mostrando {len(visible)} de {total} slides")
 st.markdown("")
