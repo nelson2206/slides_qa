@@ -8,9 +8,11 @@ from checks import (
     check_footer_caps_consistency,
     check_footer_matches_deck_title,
     check_footer_text_consistency,
+    check_min_font_size,
     check_paragraph,
     check_slide_paragraphs,
     check_subtitle_filename_alignment,
+    check_text_density,
     check_title_format_consistency,
     classify_action_title_heuristic,
     classify_caps,
@@ -261,10 +263,192 @@ def test_classify_slide_role_content_with_title():
     assert classify_slide_role(slide) == "content_with_title"
 
 
+def test_classify_slide_role_index_by_title_keyword():
+    for kw in ("Agenda", "Índice", "Tabla de contenido", "Contents", "Outline"):
+        slide = {"slide_number": 2, "layout_name": "Title and Content", "title": kw, "shapes": []}
+        assert classify_slide_role(slide) == "index", f"Failed on title={kw!r}"
+
+
+def test_classify_slide_role_index_substring_match():
+    slide = {
+        "slide_number": 2, "layout_name": "Title and Content",
+        "title": "Agenda de hoy", "shapes": [],
+    }
+    assert classify_slide_role(slide) == "index"
+
+
+def test_classify_slide_role_closing_by_title_keyword():
+    for kw in ("¡Gracias!", "Thank you", "Preguntas", "Q&A", "Contacto", "The End"):
+        slide = {"slide_number": 10, "layout_name": "Title Slide", "title": kw, "shapes": []}
+        assert classify_slide_role(slide) == "closing", f"Failed on title={kw!r}"
+
+
+def test_classify_slide_role_closing_last_slide_minimal_body():
+    """Last slide with barely any body content → closing, even without keyword."""
+    slide = {
+        "slide_number": 10,
+        "layout_name": "Title Slide",
+        "title": "Final",
+        "shapes": [{"is_title": True, "text": "Final"}],
+    }
+    assert classify_slide_role(slide, total_slides=10) == "closing"
+
+
+def test_classify_slide_role_cover_wins_over_index():
+    """Even if slide 1 has 'agenda' in title, it's still the cover."""
+    slide = {"slide_number": 1, "layout_name": "Title Slide", "title": "Agenda", "shapes": []}
+    assert classify_slide_role(slide) == "cover"
+
+
+def test_classify_slide_role_confidentiality():
+    for kw in ("Avisos de confidencialidad", "Aviso legal", "Disclaimer", "Confidentiality notice"):
+        slide = {"slide_number": 2, "layout_name": "Title and Content", "title": kw, "shapes": []}
+        assert classify_slide_role(slide) == "confidentiality", f"Failed on {kw!r}"
+
+
+def test_classify_slide_role_references():
+    for kw in ("Referencias", "Casos de éxito", "Clientes y referencias", "Case studies"):
+        slide = {"slide_number": 30, "layout_name": "Title and Content", "title": kw, "shapes": []}
+        assert classify_slide_role(slide) == "references", f"Failed on {kw!r}"
+
+
+def test_classify_slide_role_credentials():
+    for kw in ("Credenciales", "Nuestras credenciales", "Credentials"):
+        slide = {"slide_number": 35, "layout_name": "Title and Content", "title": kw, "shapes": []}
+        assert classify_slide_role(slide) == "credentials", f"Failed on {kw!r}"
+
+
+def test_classify_slide_role_cv():
+    for kw in ("CVs de consultores", "CV Juan Pérez", "Currículum del equipo",
+               "Consultores asignados", "Perfil del equipo"):
+        slide = {"slide_number": 40, "layout_name": "Title and Content", "title": kw, "shapes": []}
+        assert classify_slide_role(slide) == "cv", f"Failed on {kw!r}"
+
+
+def test_classify_slide_role_cv_no_false_positives():
+    """CV is a 2-letter word — make sure it doesn't match random substrings."""
+    # 'MCV', 'cvc', random text — must NOT match
+    for non_cv in ("MCV Solutions", "Cvc del proyecto", "Equipo de trabajo"):
+        slide = {"slide_number": 10, "layout_name": "Title and Content", "title": non_cv, "shapes": []}
+        role = classify_slide_role(slide)
+        assert role != "cv", f"False positive on {non_cv!r}: got {role}"
+
+
 def test_bad_deck_flags_content_no_title(bad_deck_path):
     deck = extract_deck(bad_deck_path)
     slide_5 = deck["slides"][4]
     assert classify_slide_role(slide_5) == "content_no_title"
+
+
+# -------- check_min_font_size --------
+
+def test_check_min_font_size_flags_below_threshold():
+    slide = {
+        "shapes": [
+            {"is_title": False, "name": "Body", "min_font_size_pt": 7.5, "text": "tiny"},
+            {"is_title": False, "name": "Body2", "min_font_size_pt": 11.0, "text": "ok"},
+        ],
+    }
+    result = check_min_font_size(slide)
+    assert result["ok"] is False
+    assert len(result["violations"]) == 1
+    assert result["violations"][0]["size_pt"] == 7.5
+    assert result["smallest_pt"] == 7.5
+    assert "9pt" in result["suggestion"]
+
+
+def test_check_min_font_size_passes_when_all_above():
+    slide = {
+        "shapes": [
+            {"is_title": False, "name": "Body", "min_font_size_pt": 11.0, "text": "ok"},
+            {"is_title": False, "name": "Footnote", "min_font_size_pt": 9.0, "text": "ok"},
+        ],
+    }
+    result = check_min_font_size(slide)
+    assert result["ok"] is True
+    assert result["violations"] == []
+    assert result["suggestion"] is None
+
+
+def test_check_min_font_size_skips_title_and_unset():
+    """Title shapes and shapes without explicit size are ignored."""
+    slide = {
+        "shapes": [
+            {"is_title": True, "name": "Title", "min_font_size_pt": 4.0, "text": "title"},
+            {"is_title": False, "name": "Body", "min_font_size_pt": None, "text": "inherits"},
+        ],
+    }
+    result = check_min_font_size(slide)
+    assert result["ok"] is True
+
+
+# -------- check_text_density --------
+
+def test_check_text_density_flags_overloaded_slide():
+    big_text = "palabra " * 150  # 150 words
+    slide = {
+        "has_visuals": False,
+        "shapes": [{"is_title": False, "text": big_text}],
+    }
+    result = check_text_density(slide)
+    assert result["ok"] is False
+    assert result["word_count"] >= 120
+    assert "gráfico" in result["suggestion"] or "tabla" in result["suggestion"]
+
+
+def test_check_text_density_suggests_split_when_has_visuals():
+    big_text = "palabra " * 150
+    slide = {
+        "has_visuals": True,
+        "shapes": [{"is_title": False, "text": big_text}],
+    }
+    result = check_text_density(slide)
+    assert result["ok"] is False
+    assert "dividirla" in result["suggestion"] or "bullets" in result["suggestion"]
+
+
+def test_check_text_density_passes_on_light_slide():
+    slide = {
+        "has_visuals": False,
+        "shapes": [{"is_title": False, "text": "Una idea corta con poco texto."}],
+    }
+    result = check_text_density(slide)
+    assert result["ok"] is True
+    assert result["suggestion"] is None
+
+
+# -------- footer alignment outliers --------
+
+def test_footer_alignment_marks_outlier_per_slide():
+    """When one slide's footer is way off the median, it gets tagged as outlier."""
+    deck = {
+        "slide_height_in": 7.5,
+        "slides": [
+            {
+                "slide_number": i,
+                "shapes": [{
+                    "is_title": False, "name": f"Footer-{i}", "text": "Brand",
+                    "top_in": 7.0, "left_in": 0.5, "height_in": 0.3, "width_in": 5.0,
+                }],
+            }
+            for i in range(1, 5)
+        ] + [
+            {
+                "slide_number": 5,
+                "shapes": [{
+                    "is_title": False, "name": "Footer-5", "text": "Brand",
+                    "top_in": 6.5, "left_in": 2.0, "height_in": 0.3, "width_in": 5.0,
+                }],
+            }
+        ],
+    }
+    result = check_footer_alignment(deck)
+    outliers = result.get("outlier_slides", [])
+    outlier_nums = {o["slide_number"] for o in outliers}
+    assert 5 in outlier_nums
+    # First 4 slides share the canonical position → not outliers
+    assert 1 not in outlier_nums
+    assert result["canonical_top_in"] == 7.0
 
 
 # -------- classify_title_length --------

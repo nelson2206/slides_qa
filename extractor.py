@@ -50,15 +50,36 @@ def extract_deck(pptx_path: str | Path) -> dict[str, Any]:
                 continue
 
             paragraphs = []
+            shape_explicit_sizes_pt: list[float] = []
             for p in shape.text_frame.paragraphs:
                 p_text = "".join(run.text for run in p.runs).strip()
-                if p_text:
-                    paragraphs.append({"text": p_text, "level": p.level})
+                if not p_text:
+                    continue
+                run_sizes_pt: list[float] = []
+                for run in p.runs:
+                    if not (run.text or "").strip():
+                        continue
+                    sz = run.font.size
+                    if sz is not None:
+                        try:
+                            run_sizes_pt.append(float(sz.pt))
+                        except (AttributeError, ValueError):
+                            pass
+                min_size_pt = min(run_sizes_pt) if run_sizes_pt else None
+                shape_explicit_sizes_pt.extend(run_sizes_pt)
+                paragraphs.append({
+                    "text": p_text,
+                    "level": p.level,
+                    "min_size_pt": min_size_pt,
+                })
 
             info: dict[str, Any] = {
                 "name": shape.name,
                 "text": text,
                 "paragraphs": paragraphs,
+                "min_font_size_pt": (
+                    min(shape_explicit_sizes_pt) if shape_explicit_sizes_pt else None
+                ),
                 "is_title": title_shape is not None and shape == title_shape,
                 "top_in": _emu_to_inches(shape.top),
                 "left_in": _emu_to_inches(shape.left),

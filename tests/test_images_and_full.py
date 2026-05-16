@@ -126,7 +126,7 @@ def _drive_full(generator):
 
 
 def test_full_qa_skips_default_roles(bad_deck_path, patched_anthropic):
-    """Default skip set should exclude divider/minimal slides from Sonnet calls."""
+    """Default skip set should exclude cover/index/divider/closing/minimal from Sonnet calls."""
     from qa import run_full_qa
     deck = extract_deck(bad_deck_path)
     result, _, slide_dones, _, errors = _drive_full(
@@ -134,15 +134,13 @@ def test_full_qa_skips_default_roles(bad_deck_path, patched_anthropic):
     )
     assert not errors
     assert result is not None
-    # Bad deck has slide 5 (no title, blank layout). Slide 5 was classified as
-    # content_no_title in earlier tests, NOT minimal, so it WILL be analyzed.
-    # The deck has no divider/minimal slides, so analyzed == 5.
+    # Bad deck has 5 slides: slide 1 is cover (now skipped by default), slides
+    # 2-4 are content_with_title, slide 5 is content_no_title. Default skip
+    # includes cover → 4 analyzed.
     overview = result["deck_overview"]
-    # No slides should be skipped because the bad fixture has no divider/minimal
-    assert overview["skipped_slides"] == []
-    # All 5 should have been sent to Sonnet
-    assert len(slide_dones) == 5
-    assert overview["analyzed_slides"] == [1, 2, 3, 4, 5]
+    assert overview["skipped_slides"] == [1]
+    assert len(slide_dones) == 4
+    assert overview["analyzed_slides"] == [2, 3, 4, 5]
 
 
 def test_full_qa_skips_by_role_override(bad_deck_path, patched_anthropic):
@@ -182,12 +180,12 @@ def test_full_qa_slide_done_events_progressive(bad_deck_path, patched_anthropic)
     _, _, slide_dones, _, _ = _drive_full(
         run_full_qa("deck_problemas.pptx", deck, api_key="fake-key")
     )
-    assert len(slide_dones) == 5
-    # 'completed' field should increment
+    # Cover (slide 1) is skipped by default → 4 analyzed
+    assert len(slide_dones) == 4
     completeds = [s["completed"] for s in slide_dones]
     assert completeds == sorted(completeds)
-    assert completeds[-1] == 5
-    assert all(s["total"] == 5 for s in slide_dones)
+    assert completeds[-1] == 4
+    assert all(s["total"] == 4 for s in slide_dones)
 
 
 def test_full_qa_visual_disabled_by_default(bad_deck_path, patched_anthropic):
@@ -282,20 +280,20 @@ def test_full_qa_includes_skipped_in_final_report(image_deck_path, patched_anthr
     """Skipped slides should still appear in result['slides'] with role + deterministic data."""
     from qa import run_full_qa
     deck = extract_deck(image_deck_path)
-    # Image deck slide 2 has layout 'Title Only', which contains 'title only' hint
-    # -> classified as divider -> default skipped. Slide 1 is cover (analyzed).
+    # Image deck: slide 1 = cover (now skipped by default), slide 2 = 'Title Only'
+    # layout → divider (also skipped). Both slides skipped under the new defaults.
     result, _, slide_dones, _, _ = _drive_full(
         run_full_qa(image_deck_path.name, deck, api_key="fake-key")
     )
     overview = result["deck_overview"]
-    # Slide 2 should be skipped (divider layout)
+    assert 1 in overview["skipped_slides"]
     assert 2 in overview["skipped_slides"]
-    # Only slide 1 (cover) goes to Sonnet
-    assert len(slide_dones) == 1
-    # Skipped slide is still in the final report
+    # No slides sent to Sonnet — both are non-body roles
+    assert len(slide_dones) == 0
+    # Both still appear in the final report with _skipped=True
     assert len(result["slides"]) == 2
-    slide_2 = next(s for s in result["slides"] if s["slide_number"] == 2)
-    assert slide_2.get("_skipped") is True
+    for s in result["slides"]:
+        assert s.get("_skipped") is True
 
 
 # -------- pricing: skip + visual --------

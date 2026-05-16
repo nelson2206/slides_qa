@@ -23,14 +23,23 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Iterator
 
 from checks import (
+    NON_BODY_ROLES,
     classify_action_title_heuristic,
     detect_so_what_heuristic,
     run_deterministic_checks,
 )
 from providers import Provider, make_provider
 
-# Roles that don't carry analyzable narrative content. Cover stays analyzable.
-DEFAULT_SKIP_ROLES = frozenset({"divider", "minimal"})
+# Roles that don't carry analyzable narrative content and are skipped from LLM
+# analysis by default. These exist for navigation / boilerplate, not argument:
+# - cover / index / divider / closing: structural navigation
+# - confidentiality / references / credentials / cv: consulting-deck boilerplate
+#   (avisos legales, casos de éxito, credenciales, CVs de consultores)
+# - minimal: slides with negligible content
+DEFAULT_SKIP_ROLES = frozenset({
+    "cover", "index", "divider", "closing", "minimal",
+    "confidentiality", "references", "credentials", "cv",
+})
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +105,8 @@ def _build_local_finding(
     paragraphs = det_slide["paragraphs"]
     role = det_slide["role"]
     title = det_slide["title"]
+    min_font_size = det_slide.get("min_font_size") or {}
+    text_density = det_slide.get("text_density") or {}
 
     # Local-only heuristics for the semantic checks
     at_h = classify_action_title_heuristic(title)
@@ -123,6 +134,12 @@ def _build_local_finding(
             issues.append(
                 f"Pie de página en estilo distinto al dominante ({footer_caps['dominant_style']})."
             )
+    if not skipped and min_font_size.get("applicable") and not min_font_size.get("ok"):
+        score -= 1
+        issues.append(min_font_size.get("notes", "Texto bajo el tamaño mínimo."))
+    if not skipped and text_density.get("applicable") and not text_density.get("ok"):
+        score -= 1
+        issues.append(text_density.get("notes", "Slide muy cargada."))
     score = max(0, score)
 
     skip_note = f" Saltada del análisis semántico (role={role})." if skipped else ""
@@ -160,12 +177,36 @@ def _build_local_finding(
                 else "Análisis de causa→consecuencia requiere modo full (con API)."
             ),
         },
+        "min_font_size": min_font_size,
+        "text_density": text_density,
         "_paragraphs": paragraphs,
         "_footer": det_slide["footer"],
     }
 
 
 def _build_text_length_block(paragraphs: dict[str, Any]) -> dict[str, Any]:
+    n_long = len(paragraphs["long_paragraphs"])
+    has_bullet_cand = bool(paragraphs["bullet_candidates"])
+
+    if paragraphs["ok"]:
+        suggestion = None
+    elif has_bullet_cand and n_long == 1:
+        suggestion = (
+            "Partí ese párrafo en bullets de 2-3 líneas, o reducilo a la "
+            "frase con el insight + 1-2 evidencias."
+        )
+    elif has_bullet_cand:
+        suggestion = (
+            f"{n_long} párrafos largos en placeholders de contenido. "
+            "Convertilos en bullets cortos (2-3 líneas máx.) o reducí el texto a "
+            "la idea clave + evidencia."
+        )
+    else:
+        suggestion = (
+            f"Acortá los {n_long} párrafos largos — partilos en bullets de "
+            "2-3 líneas, o resumí a la frase con el insight."
+        )
+
     return {
         "ok": paragraphs["ok"],
         "long_paragraphs": [
@@ -177,11 +218,7 @@ def _build_text_length_block(paragraphs: dict[str, Any]) -> dict[str, Any]:
             "Sin párrafos largos." if paragraphs["ok"]
             else f"{len(paragraphs['long_paragraphs'])} párrafo(s) exceden el largo recomendado."
         ),
-        "suggestion": (
-            "Partir en bullets de máximo 2-3 líneas."
-            if paragraphs["bullet_candidates"]
-            else None
-        ),
+        "suggestion": suggestion,
     }
 
 
@@ -190,9 +227,20 @@ def _build_footer_block(
     alignment_ok: bool,
     alignment_notes: str,
     canonical_text: str | None = None,
+    role: str | None = None,
+    slide_alignment_outlier: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the footer block per slide. Compares against the canonical footer
-    text from the deck so the UI can show 'matches canonical' vs 'outlier'."""
+    text from the deck so the UI can show 'matches canonical' vs 'outlier'.
+
+    `slide_alignment_outlier`, when provided, contains the canonical top/left
+    positions and a list of how THIS slide deviates — used to render a concrete
+    fix suggestion ("mové el footer a top=X.XX in").
+
+    For non-body roles (cover/index/divider/closing) a missing footer is
+    legitimate and gets tagged with exempt=True so the UI can soften wording
+    and avoid suggesting "add the canonical footer".
+    """
     matches_canonical: bool | None = None
     if footer["present"] and footer.get("text") and canonical_text:
         import re as _re
@@ -200,12 +248,27 @@ def _build_footer_block(
             return _re.sub(r"\s+", " ", s.strip().lower())
         matches_canonical = _norm(footer["text"]) == _norm(canonical_text)
 
+    exempt = role in NON_BODY_ROLES if role else False
+
+    # Per-slide alignment: True if this slide's footer matches the canonical
+    # position (within tolerance). Only False when this slide is in the outlier
+    # list — most slides will be aligned even if the deck-level check flagged
+    # some inconsistency.
+    if not footer["present"]:
+        aligned: bool | None = None
+    elif slide_alignment_outlier is not None:
+        aligned = False
+    else:
+        aligned = True
+
     return {
         "present": footer["present"],
         "current_footer": footer.get("text"),
-        "aligned": alignment_ok if footer["present"] else None,
+        "aligned": aligned,
         "matches_canonical": matches_canonical,
         "canonical_text": canonical_text,
+        "exempt": exempt,
+        "alignment_outlier": slide_alignment_outlier,
         "notes": footer["notes"] + (
             "" if not footer["present"] or alignment_ok
             else " " + alignment_notes
@@ -224,15 +287,24 @@ def run_local_qa(file_name: str, deck: dict[str, Any]) -> Iterator[tuple[str, An
     footer_alignment = det["footer_alignment"]
     canonical_footer = det["footer_text_consistency"].get("dominant_text")
 
+    align_outliers_by_num = {
+        o["slide_number"]: o for o in footer_alignment.get("outlier_slides", [])
+    }
+
     slides_report = []
     for slide, det_slide in zip(deck["slides"], det["slides"]):
-        finding = _build_local_finding(slide, det_slide, footer_caps)
+        # Non-body roles (cover/index/divider/closing) are skipped: no
+        # action-title / so-what verdicts, no footer-missing penalty.
+        is_non_body = det_slide["role"] in NON_BODY_ROLES
+        finding = _build_local_finding(slide, det_slide, footer_caps, skipped=is_non_body)
         finding["text_length"] = _build_text_length_block(finding.pop("_paragraphs"))
         finding["footer"] = _build_footer_block(
             finding.pop("_footer"),
             footer_alignment["ok"],
             footer_alignment.get("notes", ""),
             canonical_text=canonical_footer,
+            role=det_slide["role"],
+            slide_alignment_outlier=align_outliers_by_num.get(slide["slide_number"]),
         )
         slides_report.append(finding)
 
@@ -264,6 +336,7 @@ def _merge_finding_with_deterministic(
     det_slide: dict[str, Any],
     footer_alignment: dict[str, Any],
     canonical_footer: str | None = None,
+    slide_alignment_outlier: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     paragraphs = det_slide["paragraphs"]
     footer = det_slide["footer"]
@@ -284,7 +357,11 @@ def _merge_finding_with_deterministic(
         "footer": _build_footer_block(
             footer, footer_alignment["ok"], footer_alignment.get("notes", ""),
             canonical_text=canonical_footer,
+            role=det_slide["role"],
+            slide_alignment_outlier=slide_alignment_outlier,
         ),
+        "min_font_size": det_slide.get("min_font_size") or {},
+        "text_density": det_slide.get("text_density") or {},
     }
 
 
@@ -296,6 +373,7 @@ def run_full_qa(
     provider: str | Provider = "claude",
     max_workers: int = 6,
     skip_roles: set[str] | frozenset[str] | None = None,
+    skip_slide_numbers: set[int] | frozenset[int] | None = None,
     visual_analysis: bool = False,
     images_by_slide: dict[int, list[tuple[bytes, str]]] | None = None,
 ) -> Iterator[tuple[str, Any]]:
@@ -311,6 +389,7 @@ def run_full_qa(
     Args:
         provider: 'claude' | 'openai' | Provider instance.
         skip_roles: roles to skip from LLM analysis. Default skips divider/minimal.
+        skip_slide_numbers: explicit slide numbers to skip (e.g. from a user-deselected section).
         visual_analysis: if True, run vision pass on slides with images.
         images_by_slide: required when visual_analysis=True.
     """
@@ -321,6 +400,7 @@ def run_full_qa(
         prov = provider
 
     skip = frozenset(skip_roles) if skip_roles is not None else DEFAULT_SKIP_ROLES
+    skip_nums = frozenset(skip_slide_numbers or ())
     images_by_slide = images_by_slide or {}
 
     # ----- Stage 1: deterministic -----
@@ -333,7 +413,7 @@ def run_full_qa(
     slides_to_analyze: list[dict[str, Any]] = []
     skipped_findings: dict[int, dict[str, Any]] = {}
     for slide, det_slide in zip(deck["slides"], det["slides"]):
-        if det_slide["role"] in skip:
+        if det_slide["role"] in skip or slide["slide_number"] in skip_nums:
             placeholder = _build_local_finding(slide, det_slide, footer_caps, skipped=True)
             placeholder.pop("_paragraphs", None)
             placeholder.pop("_footer", None)
@@ -460,12 +540,16 @@ def run_full_qa(
 
     # ----- Merge with deterministic data -----
     canonical_footer = det["footer_text_consistency"].get("dominant_text")
+    align_outliers_by_num = {
+        o["slide_number"]: o for o in footer_alignment.get("outlier_slides", [])
+    }
     slides_merged = []
     for det_slide, slide in zip(det["slides"], deck["slides"]):
         n = slide["slide_number"]
         finding = slide_findings_by_num.get(n) or skipped_findings.get(n)
         merged = _merge_finding_with_deterministic(
-            finding, det_slide, footer_alignment, canonical_footer
+            finding, det_slide, footer_alignment, canonical_footer,
+            slide_alignment_outlier=align_outliers_by_num.get(n),
         )
         if n in visual_findings_by_num:
             merged["visual"] = visual_findings_by_num[n]

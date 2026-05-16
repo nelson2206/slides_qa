@@ -109,6 +109,19 @@ def test_local_qa_cover_not_penalized_for_no_body_title(good_deck_path):
     cover = result["slides"][0]
     assert cover["role"] == "cover"
     assert cover["score"] >= 9
+    # Cover is always skipped — no action_title / so-what verdicts on it.
+    assert cover["_skipped"] is True
+    assert cover["action_title"]["is_action_title"] is None
+    assert cover["so_what"]["present"] is None
+
+
+def test_local_qa_cover_footer_marked_exempt(good_deck_path):
+    deck = extract_deck(good_deck_path)
+    result, _ = _drive(run_local_qa("estrategia_comercial_2025.pptx", deck))
+
+    cover = result["slides"][0]
+    # Cover footer is exempt: missing footer should not be flagged as an issue.
+    assert cover["footer"].get("exempt") is True
 
 
 def test_local_qa_flags_footer_coverage_gap(bad_deck_path):

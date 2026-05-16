@@ -123,6 +123,129 @@ def check_slide_paragraphs(slide: dict[str, Any], **kwargs: Any) -> dict[str, An
     }
 
 
+# Minimum readable font size for projector/print decks. MBB standard floor is
+# typically 9pt for sources/footnotes; body text usually 11pt+.
+DEFAULT_MIN_FONT_PT = 9.0
+
+
+def check_min_font_size(
+    slide: dict[str, Any],
+    min_pt: float = DEFAULT_MIN_FONT_PT,
+) -> dict[str, Any]:
+    """Flag shapes whose explicitly-set font size is below `min_pt`.
+
+    Skips shapes with no explicit size (those inherit from the layout/master
+    and are usually safe defaults). Skips the title shape.
+    """
+    violations: list[dict[str, Any]] = []
+    for shape in slide.get("shapes", []):
+        if shape.get("is_title"):
+            continue
+        size = shape.get("min_font_size_pt")
+        if size is None:
+            continue
+        if size < min_pt - 0.01:  # tolerate float noise
+            violations.append({
+                "shape_name": shape.get("name"),
+                "size_pt": round(size, 1),
+                "snippet": (shape.get("text") or "")[:80],
+            })
+
+    if not violations:
+        return {
+            "applicable": True,
+            "ok": True,
+            "min_required_pt": min_pt,
+            "violations": [],
+            "notes": f"Todo el texto explícito está ≥ {min_pt:.0f}pt.",
+            "suggestion": None,
+        }
+
+    smallest = min(v["size_pt"] for v in violations)
+    return {
+        "applicable": True,
+        "ok": False,
+        "min_required_pt": min_pt,
+        "violations": violations,
+        "smallest_pt": smallest,
+        "notes": (
+            f"{len(violations)} shape(s) con texto < {min_pt:.0f}pt "
+            f"(más chico: {smallest:.1f}pt)."
+        ),
+        "suggestion": (
+            f"Subí el tamaño mínimo a {min_pt:.0f}pt — texto bajo ese umbral "
+            "es ilegible en proyector y en impresión."
+        ),
+    }
+
+
+# Thresholds for "too much text" — when a content slide crosses these, suggest
+# splitting, restructuring, or replacing prose with a chart/visual.
+HEAVY_TEXT_WORD_THRESHOLD = 120
+HEAVY_TEXT_CHAR_THRESHOLD = 800
+
+
+def check_text_density(slide: dict[str, Any]) -> dict[str, Any]:
+    """Flag content slides whose body text density is too high for one page.
+
+    Triggers when total body text exceeds ~120 words or ~800 chars. The
+    suggestion encourages adding visuals or restructuring (sub-secciones, charts).
+    """
+    body_words = 0
+    body_chars = 0
+    for shape in slide.get("shapes", []):
+        if shape.get("is_title"):
+            continue
+        text = (shape.get("text") or "").strip()
+        if not text:
+            continue
+        body_words += len(text.split())
+        body_chars += len(text)
+
+    has_visuals = slide.get("has_visuals", False)
+
+    overloaded = (
+        body_words >= HEAVY_TEXT_WORD_THRESHOLD
+        or body_chars >= HEAVY_TEXT_CHAR_THRESHOLD
+    )
+
+    if not overloaded:
+        return {
+            "applicable": True,
+            "ok": True,
+            "word_count": body_words,
+            "char_count": body_chars,
+            "has_visuals": has_visuals,
+            "notes": f"{body_words} palabras · densidad razonable.",
+            "suggestion": None,
+        }
+
+    if has_visuals:
+        suggestion = (
+            f"{body_words} palabras en una slide. Considerá dividirla en 2 "
+            "(una con el insight + visual, otra con detalle), o convertí el "
+            "texto en bullets de 1-2 líneas."
+        )
+    else:
+        suggestion = (
+            f"{body_words} palabras de texto sin visuales. Sumá un gráfico, "
+            "tabla o esquema que resuma el argumento, y reducí la prosa a "
+            "bullets de respaldo. Si no entra, partila en 2 slides."
+        )
+
+    return {
+        "applicable": True,
+        "ok": False,
+        "word_count": body_words,
+        "char_count": body_chars,
+        "has_visuals": has_visuals,
+        "notes": (
+            f"Slide muy cargada: {body_words} palabras / {body_chars} caracteres."
+        ),
+        "suggestion": suggestion,
+    }
+
+
 def check_footer(slide: dict[str, Any], slide_height_in: float | None) -> dict[str, Any]:
     """Detect a footer shape (bottom-left of the slide, small height).
 
@@ -199,12 +322,49 @@ def check_footer_alignment(deck: dict[str, Any]) -> dict[str, Any]:
             "findings": findings,
         }
 
-    tops = [f["top_in"] for f in findings]
-    lefts = [f["left_in"] for f in findings if f["left_in"] is not None]
-    heights = [f["height_in"] for f in findings]
-    top_range = max(tops) - min(tops)
-    left_range = (max(lefts) - min(lefts)) if lefts else 0.0
-    height_range = max(heights) - min(heights)
+    tops = sorted(f["top_in"] for f in findings)
+    lefts = sorted(f["left_in"] for f in findings if f["left_in"] is not None)
+    heights = sorted(f["height_in"] for f in findings)
+    top_range = tops[-1] - tops[0]
+    left_range = (lefts[-1] - lefts[0]) if lefts else 0.0
+    height_range = heights[-1] - heights[0]
+
+    # Canonical position = median across the deck. Any per-slide footer that
+    # deviates from this by more than the tolerance is flagged as an outlier.
+    def _median(xs: list[float]) -> float:
+        n = len(xs)
+        return xs[n // 2] if n % 2 == 1 else (xs[n // 2 - 1] + xs[n // 2]) / 2
+
+    canonical_top = _median(tops)
+    canonical_left = _median(lefts) if lefts else None
+
+    TOP_TOLERANCE = 0.10  # inches — ~7px at 72dpi
+    LEFT_TOLERANCE = 0.15
+
+    outlier_slides: list[dict[str, Any]] = []
+    for f in findings:
+        issues_for_slide: list[str] = []
+        if abs(f["top_in"] - canonical_top) > TOP_TOLERANCE:
+            issues_for_slide.append(
+                f"top={f['top_in']:.2f}in vs canónico {canonical_top:.2f}in"
+            )
+        if (
+            canonical_left is not None
+            and f["left_in"] is not None
+            and abs(f["left_in"] - canonical_left) > LEFT_TOLERANCE
+        ):
+            issues_for_slide.append(
+                f"left={f['left_in']:.2f}in vs canónico {canonical_left:.2f}in"
+            )
+        if issues_for_slide:
+            outlier_slides.append({
+                "slide_number": f["slide_number"],
+                "current_top_in": f["top_in"],
+                "current_left_in": f["left_in"],
+                "canonical_top_in": canonical_top,
+                "canonical_left_in": canonical_left,
+                "issues": issues_for_slide,
+            })
 
     issues: list[str] = []
     if top_range > 0.15:
@@ -222,6 +382,9 @@ def check_footer_alignment(deck: dict[str, Any]) -> dict[str, Any]:
         "top_range_in": top_range,
         "left_range_in": left_range,
         "height_range_in": height_range,
+        "canonical_top_in": canonical_top,
+        "canonical_left_in": canonical_left,
+        "outlier_slides": outlier_slides,
     }
 
 
@@ -615,23 +778,118 @@ def check_footer_caps_consistency(deck: dict[str, Any]) -> dict[str, Any]:
 
 _DIVIDER_LAYOUT_HINTS = ("section", "divider", "title only", "cover")
 
+# Roles whose footer is legitimately absent — these slides don't need a footer,
+# and a missing one should not be flagged. Also skipped from LLM analysis by default.
+NON_BODY_ROLES = frozenset({
+    "cover", "index", "divider", "closing",
+    "confidentiality", "references", "credentials", "cv",
+})
 
-def classify_slide_role(slide: dict[str, Any]) -> str:
-    """Return one of: 'cover', 'divider', 'content_with_title',
-    'content_no_title', 'minimal'.
+# Index/agenda title keywords (case- and accent-insensitive substring match)
+_INDEX_TITLE_KEYWORDS = (
+    "agenda", "indice", "contenido", "contenidos",
+    "tabla de contenido", "tabla de contenidos",
+    "table of contents", "contents", "outline",
+)
 
-    Used to scope the "missing title" penalty: dividers legitimately have no
-    body title, while content slides without a title are a real issue.
+# Closing-slide title keywords
+_CLOSING_TITLE_KEYWORDS = (
+    "gracias", "muchas gracias", "thank you", "thanks",
+    "preguntas", "questions", "q&a", "q & a", "q and a",
+    "contacto", "contactos", "contact",
+    "the end",
+)
+
+# Boilerplate slide keywords — common in consulting decks (Minsait/MBB style).
+# Each maps to a NON_BODY_ROLE so the slide is skipped from semantic analysis.
+_CONFIDENTIALITY_TITLE_KEYWORDS = (
+    "confidencialidad", "aviso de confidencialidad", "aviso legal",
+    "disclaimer", "confidential notice", "confidentiality",
+)
+_REFERENCES_TITLE_KEYWORDS = (
+    "referencias", "clientes y referencias", "casos de exito", "casos de éxito",
+    "case studies", "casos de referencia", "nuestros clientes",
+)
+_CREDENTIALS_TITLE_KEYWORDS = (
+    "credenciales", "credentials", "nuestras credenciales",
+)
+_CV_TITLE_KEYWORDS = (
+    "cv", "cvs",  # short keywords matched as standalone words
+    "curriculum",
+    "consultores asignados", "perfil del equipo", "perfiles del equipo",
+    "equipo asignado",
+)
+
+
+def _title_has_any_keyword(title_norm: str, keywords: tuple[str, ...]) -> bool:
+    """Check if a normalized title contains any of the given keywords.
+
+    Short keywords (≤3 chars, like 'cv') match only as standalone words to
+    avoid false positives ('mcv', 'cvs' substring matches). Longer keywords
+    match as substrings.
+    """
+    if not title_norm:
+        return False
+    words = title_norm.split()
+    for kw in keywords:
+        if len(kw) <= 3:
+            if kw in words:
+                return True
+        elif kw in title_norm:
+            return True
+    return False
+
+
+def _normalize_title_for_match(text: str) -> str:
+    """Lowercase + strip accents for fuzzy keyword matching."""
+    import unicodedata
+    nfkd = unicodedata.normalize("NFKD", text)
+    no_accents = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return no_accents.lower().strip()
+
+
+def classify_slide_role(slide: dict[str, Any], *, total_slides: int | None = None) -> str:
+    """Return one of: 'cover', 'index', 'divider', 'closing',
+    'content_with_title', 'content_no_title', 'minimal'.
+
+    Roles in `NON_BODY_ROLES` (cover, index, divider, closing) legitimately
+    have no body footer and are skipped from semantic analysis by default.
     """
     slide_n = slide.get("slide_number", 0)
     layout = (slide.get("layout_name") or "").lower()
     title = (slide.get("title") or "").strip()
+    title_norm = _normalize_title_for_match(title)
     has_title = bool(title)
 
     if slide_n == 1:
         return "cover"
+
+    # Divider/section-header LAYOUT takes precedence — these are the chapter
+    # boundaries used by sections.detect_sections, regardless of whether the
+    # title contains 'Referencias' or 'Contexto'. Their content is also skipped.
     if any(hint in layout for hint in _DIVIDER_LAYOUT_HINTS):
         return "divider"
+
+    # Boilerplate slides common in consulting decks — skipped from analysis.
+    if has_title and _title_has_any_keyword(title_norm, _CONFIDENTIALITY_TITLE_KEYWORDS):
+        return "confidentiality"
+
+    # Index / agenda — keyword match in title (typically early in the deck).
+    if has_title and _title_has_any_keyword(title_norm, _INDEX_TITLE_KEYWORDS):
+        return "index"
+
+    if has_title and _title_has_any_keyword(title_norm, _REFERENCES_TITLE_KEYWORDS):
+        return "references"
+
+    if has_title and _title_has_any_keyword(title_norm, _CREDENTIALS_TITLE_KEYWORDS):
+        return "credentials"
+
+    if has_title and _title_has_any_keyword(title_norm, _CV_TITLE_KEYWORDS):
+        return "cv"
+
+    # Closing slide — keyword match in title (typically at the end).
+    if has_title and _title_has_any_keyword(title_norm, _CLOSING_TITLE_KEYWORDS):
+        return "closing"
 
     body_chars = 0
     body_shapes_with_text = 0
@@ -649,6 +907,10 @@ def classify_slide_role(slide: dict[str, Any]) -> str:
 
     # Has a title and only a tiny body → probably a section/divider-ish slide.
     if has_title and body_chars < 80:
+        # If this is the last slide and has barely any body, treat as closing
+        # (covers cases where the user named it "Final" / "" / something custom).
+        if total_slides is not None and slide_n == total_slides and body_chars < 40:
+            return "closing"
         return "divider"
 
     return "minimal"
@@ -866,14 +1128,17 @@ def run_deterministic_checks(file_name: str, deck: dict[str, Any]) -> dict[str, 
     """Apply every deterministic check; return a structured report."""
     slide_height_in = deck.get("slide_height_in")
     slide_reports = []
+    total_slides = len(deck["slides"])
     for slide in deck["slides"]:
         slide_reports.append(
             {
                 "slide_number": slide["slide_number"],
                 "title": slide.get("title"),
-                "role": classify_slide_role(slide),
+                "role": classify_slide_role(slide, total_slides=total_slides),
                 "paragraphs": check_slide_paragraphs(slide),
                 "footer": check_footer(slide, slide_height_in),
+                "min_font_size": check_min_font_size(slide),
+                "text_density": check_text_density(slide),
             }
         )
 

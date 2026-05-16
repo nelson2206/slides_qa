@@ -188,8 +188,8 @@ def test_full_qa_with_openai_provider(bad_deck_path, patched_openai):
     assert result is not None
     assert result["provider"] == "openai"
     assert result["models"]["per_slide"] == "gpt-4o"
-    # The bad deck has 5 slides, all content_no_title/content_with_title (no skip)
-    assert len(slide_dones) == 5
+    # Bad deck has 5 slides; slide 1 (cover) is skipped by default → 4 analyzed.
+    assert len(slide_dones) == 4
 
 
 def test_actual_cost_in_result(bad_deck_path, patched_openai):
@@ -215,8 +215,9 @@ def test_openai_provider_normalizes_usage_correctly(bad_deck_path, patched_opena
     )
     u = result["usage"]["per_slide"]
     # Mock had prompt_tokens=600, cached=100 → input=500, cache_read=100
-    # 5 slides * 500 = 2500 input
-    assert u["input"] == 2500
-    assert u["cache_read"] == 500
-    assert u["output"] == 1000  # 5 * 200
+    # Cover (slide 1) is skipped by default → 4 analyzed slides.
+    # 4 slides * 500 = 2000 input
+    assert u["input"] == 2000
+    assert u["cache_read"] == 400
+    assert u["output"] == 800  # 4 * 200
     assert u["cache_write"] == 0  # OpenAI doesn't bill cache writes
