@@ -51,7 +51,7 @@ _OG_IMAGE_URL = "https://slides-qa.streamlit.app/app/static/og-image.png"
 st.markdown(
     f'''
 <meta property="og:title" content="Holmes — El detective de tus decks">
-<meta property="og:description" content="Subí tu .pptx y Holmes lo investiga slide por slide: action titles, so-what, storyline, pie de página, análisis visual. Con criterio de senior MBB.">
+<meta property="og:description" content="Sube tu .pptx y Holmes lo investiga slide por slide: action titles, so-what, storyline, pie de página, análisis visual. Con criterio de senior MBB.">
 <meta property="og:image" content="{_OG_IMAGE_URL}">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
@@ -70,7 +70,7 @@ st.markdown(
 styles.hero(
     "El detective de tus decks",
     "Holmes",
-    "Minsaiter, subí un <code>.pptx</code> y Holmes revisará cada slide con IA "
+    "Minsaiter, sube un <code>.pptx</code> y Holmes revisará cada slide con IA "
     "para darte feedback.",
     chips=["Action titles", "So-what por slide", "Pie de página", "Storyline", "Análisis visual"],
 )
@@ -133,7 +133,7 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 
 uploaded = st.file_uploader(
-    "Subí tu presentación", type=["pptx"], label_visibility="collapsed"
+    "Sube tu presentación", type=["pptx"], label_visibility="collapsed"
 )
 
 if uploaded is None:
