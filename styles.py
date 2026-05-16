@@ -1530,6 +1530,44 @@ def section_label(text: str) -> None:
     st.markdown(f'<span class="qa-section-label">{text}</span>', unsafe_allow_html=True)
 
 
+def auto_scroll_to(anchor_id: str, *, delay_ms: int = 280) -> None:
+    """Inject JS (via an invisible iframe) that smoothly scrolls the parent
+    document to the element with `id=anchor_id`. Use sparingly — call only
+    on the rerun when the target first appears, gated by st.session_state
+    so it doesn't fight the user's manual scroll on subsequent reruns.
+    """
+    import streamlit.components.v1 as components
+
+    # The script runs inside an iframe but reaches up to window.parent —
+    # safe since the iframe is same-origin with the Streamlit app.
+    components.html(
+        f"""
+<script>
+  (function() {{
+    setTimeout(function() {{
+      try {{
+        var doc = window.parent.document;
+        var t = doc.getElementById({anchor_id!r});
+        if (t) t.scrollIntoView({{behavior: 'smooth', block: 'start'}});
+      }} catch (e) {{ /* cross-origin or detached — ignore */ }}
+    }}, {delay_ms});
+  }})();
+</script>
+""",
+        height=0,
+    )
+
+
+def scroll_anchor(anchor_id: str, *, top_margin_px: int = 100) -> None:
+    """Render an invisible anchor div with id=anchor_id that JS scroll
+    targets can reach. Uses negative margin so it doesn't add layout space."""
+    st.markdown(
+        f'<div id="{anchor_id}" style="position:relative;height:0;'
+        f'margin-top:-{top_margin_px}px;pointer-events:none;"></div>',
+        unsafe_allow_html=True,
+    )
+
+
 def pill(text: str, variant: str = "muted") -> str:
     """Inline status pill. Variants: ok | warn | crit | info | muted."""
     return f'<span class="qa-pill {variant}">{text}</span>'

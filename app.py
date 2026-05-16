@@ -196,9 +196,15 @@ def used_mode_safe():
 
 # Compact deck summary
 st.markdown("")
+styles.scroll_anchor("qa-after-upload")
 c1, c2 = st.columns(2)
 c1.metric("Slides", deck["slide_count"])
 c2.metric("Con imágenes", n_visuals)
+
+# Auto-scroll once per uploaded file: bring the metrics + run button into view.
+if st.session_state.get("_scrolled_after_upload") != file_hash:
+    st.session_state["_scrolled_after_upload"] = file_hash
+    styles.auto_scroll_to("qa-after-upload")
 
 
 # ---------------------------------------------------------------------------
@@ -390,10 +396,14 @@ if run_button:
     )
 
     st.markdown("---")
+    styles.scroll_anchor("qa-progress")
     styles.section_label("Progreso")
     status_box = st.empty()
     progress_bar = st.empty()
     live_table = st.empty()
+
+    # Bring the progress section into view as soon as the run starts.
+    styles.auto_scroll_to("qa-progress")
 
     completed_slides: list[dict] = []
     result_obj = None
@@ -492,6 +502,7 @@ for s in slides:
 
 # Top metrics
 st.markdown("---")
+styles.scroll_anchor("qa-results")
 provider_raw = result.get("provider", "")
 provider_label = PROVIDER_LABELS.get(provider_raw, provider_raw)
 mode_label = "Modo local" if result["mode"] == "local" else f"{provider_label} · modo full"
@@ -499,6 +510,12 @@ skipped_count = len(overview.get("skipped_slides", []))
 meta_bits = [mode_label, f"{total} slides"]
 if skipped_count:
     meta_bits.append(f"{skipped_count} skipped")
+
+# Bring the results into view once per file/run
+_results_marker = f"{file_hash}__{result.get('mode', '')}"
+if st.session_state.get("_scrolled_to_results") != _results_marker:
+    st.session_state["_scrolled_to_results"] = _results_marker
+    styles.auto_scroll_to("qa-results")
 
 st.markdown(f"## {file_name}")
 st.caption("  ·  ".join(meta_bits))
