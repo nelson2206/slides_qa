@@ -636,15 +636,21 @@ hr {
    Dark panel with one colored brick per slide. Section names labeled below.
    ────────────────────────────────────────────── */
 .qa-nav {
-  position: sticky;
-  top: 0;
-  z-index: 50;
   background: linear-gradient(180deg, #14040a 0%, #1f0612 100%);
   border-radius: var(--radius);
   padding: 12px 14px 10px;
   margin: 0.4rem 0 1.4rem 0;
   box-shadow: 0 6px 24px rgba(20, 4, 10, 0.22);
   border: 1px solid rgba(255,255,255,0.04);
+}
+/* Make Streamlit's wrapper sticky so the panel follows the user as they scroll. */
+[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] > .qa-nav) {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 100 !important;
+  background: var(--surface);
+  padding-top: 6px;
+  margin-top: -6px;
 }
 .qa-nav-header {
   display: flex;
@@ -696,12 +702,12 @@ hr {
 .qa-nav-section-group {
   display: flex;
   align-items: stretch;
-  gap: 1px;
+  gap: 3px;
   min-width: 0;
 }
 /* Section separator — thin vertical gap between groups */
 .qa-nav-sep {
-  flex: 0 0 6px;
+  flex: 0 0 10px;
   align-self: stretch;
   background: transparent;
   position: relative;
@@ -710,55 +716,107 @@ hr {
   content: "";
   position: absolute;
   left: 50%;
-  top: 0;
-  bottom: 0;
+  top: 4px;
+  bottom: 4px;
   width: 1px;
-  background: rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.18);
 }
 
 .qa-nav-block {
-  flex: 1 1 0;
-  min-width: 14px;
-  height: 30px;
+  flex: 0 0 78px;
+  height: 50px;
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border: 2px solid;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+  text-decoration: none !important;
+  transition: transform 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 160ms ease, filter 100ms ease;
+  user-select: none;
+}
+.qa-nav-block img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.qa-nav-block-no-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.66rem;
-  font-weight: 700;
-  text-decoration: none !important;
-  cursor: pointer;
-  border-radius: 3px;
-  transition: transform 110ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              box-shadow 140ms ease, filter 100ms ease;
+  width: 100%;
+  height: 100%;
+  font-size: 0.95rem;
+  font-weight: 800;
   font-feature-settings: "tnum" 1, "lnum" 1;
-  position: relative;
-  user-select: none;
 }
+.qa-nav-block-no-thumb.sev-critical { background: #e94e77; color: white; }
+.qa-nav-block-no-thumb.sev-warning  { background: #f0a429; color: #2e0a16; }
+.qa-nav-block-no-thumb.sev-nit      { background: #4b8ef0; color: white; }
+.qa-nav-block-no-thumb.sev-ok       { background: #2dba8a; color: white; }
+.qa-nav-block-no-thumb.skipped      { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.45); }
+
+.qa-nav-block-num {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  background: rgba(20, 4, 10, 0.86);
+  color: rgba(255,255,255,0.96);
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  letter-spacing: 0.02em;
+  z-index: 2;
+  pointer-events: none;
+}
+/* Severity stripe at the bottom of the thumbnail */
+.qa-nav-block-stripe {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  z-index: 2;
+}
+
 .qa-nav-block:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.15);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  transform: translateY(-3px) scale(1.04);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.55);
+  filter: brightness(1.08);
   z-index: 3;
 }
 .qa-nav-block:active { transform: translateY(0); }
 
-.qa-nav-block.sev-critical { background: #e94e77; color: white !important; }
-.qa-nav-block.sev-warning  { background: #f0a429; color: #2e0a16 !important; }
-.qa-nav-block.sev-nit      { background: #4b8ef0; color: white !important; }
-.qa-nav-block.sev-ok       { background: #2dba8a; color: white !important; }
+.qa-nav-block.sev-critical { border-color: #e94e77; }
+.qa-nav-block.sev-warning  { border-color: #f0a429; }
+.qa-nav-block.sev-nit      { border-color: #4b8ef0; }
+.qa-nav-block.sev-ok       { border-color: #2dba8a; }
+.qa-nav-block.sev-critical .qa-nav-block-stripe { background: #e94e77; }
+.qa-nav-block.sev-warning  .qa-nav-block-stripe { background: #f0a429; }
+.qa-nav-block.sev-nit      .qa-nav-block-stripe { background: #4b8ef0; }
+.qa-nav-block.sev-ok       .qa-nav-block-stripe { background: #2dba8a; }
 .qa-nav-block.skipped {
-  background: rgba(255,255,255,0.10);
-  color: rgba(255,255,255,0.45) !important;
-  font-weight: 600;
+  border-color: rgba(255,255,255,0.18);
+  filter: grayscale(0.55) brightness(0.72);
+}
+.qa-nav-block.skipped:hover {
+  filter: grayscale(0.25) brightness(0.95);
+}
+.qa-nav-block.skipped .qa-nav-block-stripe {
+  background: rgba(255,255,255,0.20);
 }
 
-/* Section labels row — proportionally aligned under their block group */
+/* Section labels row — width matches the section group above */
 .qa-nav-labels {
   display: flex;
   align-items: flex-start;
-  margin-top: 6px;
+  margin-top: 8px;
   gap: 0;
-  width: 100%;
 }
 .qa-nav-label {
   display: flex;
@@ -821,8 +879,9 @@ hr {
   font-weight: 500;
 }
 
-/* Anchor offset on slide cards so sticky nav doesn't cover them */
-.qa-slide-card { scroll-margin-top: 90px; }
+/* Anchor offset on slide cards so the sticky thumb navigator doesn't cover them */
+.qa-slide-card { scroll-margin-top: 170px; }
+.qa-section-divider { scroll-margin-top: 170px; }
 
 /* ──────────────────────────────────────────────
    Deck overview panel — promoted from expander
@@ -1443,13 +1502,27 @@ def summary_cards(cards: list[dict]) -> None:
 def slide_navigator(
     slides: list[dict],
     sections: list[dict] | None = None,
+    thumbs: dict[int, bytes] | None = None,
 ) -> None:
-    """Sticky timeline navigator: one colored block per slide.
+    """Sticky timeline navigator: one thumbnail per slide with severity border.
 
-    When `sections` is provided, blocks are grouped contiguously with a thin
+    When `sections` is provided, thumbnails are grouped contiguously with a thin
     vertical separator between groups, and a labels row underneath aligns each
-    section name beneath its block group (proportional flex-grow).
+    section name beneath its group (widths match exactly).
+
+    Block geometry (must match the CSS in this file):
+      - block width  = 78px
+      - block gap    = 3px (within a section group)
+      - section sep  = 10px (between groups)
     """
+    import base64 as _base64
+
+    BLOCK_W = 78
+    BLOCK_GAP = 3
+    SECTION_SEP = 10
+
+    thumbs = thumbs or {}
+
     def _block(slide: dict) -> str:
         n = slide["slide_number"]
         sev = slide.get("severity") or "nit"
@@ -1462,15 +1535,28 @@ def slide_navigator(
         if title:
             tooltip += f" — {title[:60]}"
         skipped_cls = " skipped" if slide.get("_skipped") else ""
+
+        thumb_bytes = thumbs.get(n)
+        if thumb_bytes:
+            b64 = _base64.b64encode(thumb_bytes).decode("ascii")
+            inner = f'<img src="data:image/png;base64,{b64}" alt="Slide {n}" />'
+        else:
+            inner = (
+                f'<div class="qa-nav-block-no-thumb sev-{sev}{skipped_cls}">{n}</div>'
+            )
+
         return (
             f'<a class="qa-nav-block sev-{sev}{skipped_cls}" '
-            f'href="#qa-slide-{n}" title="{_escape_html(tooltip)}">{n}</a>'
+            f'href="#qa-slide-{n}" title="{_escape_html(tooltip)}">'
+            f'{inner}'
+            f'<span class="qa-nav-block-num">{n}</span>'
+            '<span class="qa-nav-block-stripe"></span>'
+            '</a>'
         )
 
     slide_by_n = {s["slide_number"]: s for s in slides}
     total = len(slides)
 
-    # Header
     legend_html = (
         '<span class="qa-nav-legend">'
         '<span class="qa-nav-legend-item"><span class="qa-nav-legend-swatch" style="background:#e94e77"></span>Critical</span>'
@@ -1491,7 +1577,6 @@ def slide_navigator(
     )
 
     if sections:
-        # Build groups + alternating separators
         groups: list[str] = []
         labels: list[str] = []
         for i, sec in enumerate(sections):
@@ -1499,9 +1584,10 @@ def slide_navigator(
             if not nums:
                 continue
             count = len(nums)
+            group_width = count * BLOCK_W + max(0, count - 1) * BLOCK_GAP
             blocks_html = "".join(_block(slide_by_n[n]) for n in nums)
             groups.append(
-                f'<div class="qa-nav-section-group" style="flex: {count} {count} 0;">'
+                f'<div class="qa-nav-section-group" style="flex: 0 0 {group_width}px;">'
                 f'{blocks_html}'
                 '</div>'
             )
@@ -1511,15 +1597,16 @@ def slide_navigator(
                 else str(sec["start"])
             )
             labels.append(
-                f'<div class="qa-nav-label" style="flex: {count} {count} 0;">'
+                f'<div class="qa-nav-label" style="flex: 0 0 {group_width}px;">'
                 f'<span class="qa-nav-label-name">{_escape_html(sec["name"])}</span>'
                 f'<span class="qa-nav-label-range">{_escape_html(range_text)}</span>'
                 '</div>'
             )
 
-        # Interleave with separators
-        track_html = '<div class="qa-nav-sep"></div>'.join(groups)
-        labels_html = '<div class="qa-nav-label-sep"></div>'.join(labels)
+        sep_html = '<div class="qa-nav-sep"></div>'
+        label_sep_html = f'<div class="qa-nav-label-sep" style="flex: 0 0 {SECTION_SEP}px;"></div>'
+        track_html = sep_html.join(groups)
+        labels_html = label_sep_html.join(labels)
         body = (
             f'<div class="qa-nav-track">{track_html}</div>'
             f'<div class="qa-nav-labels">{labels_html}</div>'
@@ -1528,7 +1615,7 @@ def slide_navigator(
         blocks_html = "".join(_block(s) for s in slides)
         body = (
             f'<div class="qa-nav-track">'
-            f'<div class="qa-nav-section-group" style="flex: 1 1 0;">{blocks_html}</div>'
+            f'<div class="qa-nav-section-group">{blocks_html}</div>'
             '</div>'
         )
 

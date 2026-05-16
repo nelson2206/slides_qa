@@ -385,19 +385,19 @@ def test_check_min_font_size_skips_title_and_unset():
 # -------- check_text_density --------
 
 def test_check_text_density_flags_overloaded_slide():
-    big_text = "palabra " * 150  # 150 words
+    big_text = "palabra " * 300  # 300 words → over the 260 threshold
     slide = {
         "has_visuals": False,
         "shapes": [{"is_title": False, "text": big_text}],
     }
     result = check_text_density(slide)
     assert result["ok"] is False
-    assert result["word_count"] >= 120
+    assert result["word_count"] >= 260
     assert "gráfico" in result["suggestion"] or "tabla" in result["suggestion"]
 
 
 def test_check_text_density_suggests_split_when_has_visuals():
-    big_text = "palabra " * 150
+    big_text = "palabra " * 300
     slide = {
         "has_visuals": True,
         "shapes": [{"is_title": False, "text": big_text}],
@@ -405,6 +405,24 @@ def test_check_text_density_suggests_split_when_has_visuals():
     result = check_text_density(slide)
     assert result["ok"] is False
     assert "dividirla" in result["suggestion"] or "bullets" in result["suggestion"]
+
+
+def test_check_text_density_passes_at_250_words():
+    """250 words on a slide is OK — should not be flagged.
+
+    Uses realistic Spanish word length (~6 chars). 250 words ≈ 1500 chars,
+    well under the 1900-char backstop.
+    """
+    text_250 = "palabra " * 250  # 250 words × 8 chars = 2000 chars
+    # Use shorter words to stay under the char ceiling (the spec is per-word).
+    text_250 = "casa " * 250  # 250 words × 5 chars = 1250 chars
+    slide = {
+        "has_visuals": False,
+        "shapes": [{"is_title": False, "text": text_250}],
+    }
+    result = check_text_density(slide)
+    assert result["ok"] is True
+    assert result["word_count"] == 250
 
 
 def test_check_text_density_passes_on_light_slide():

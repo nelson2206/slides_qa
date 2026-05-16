@@ -616,9 +616,9 @@ st.markdown("")
 # Re-detect sections from the result's deck snapshot (sections are inherent to the input deck)
 result_sections = detect_sections({"slides": slides})
 
-# Slide navigator (sticky)
+# Slide navigator (sticky timeline with thumbnails)
 if visible:
-    styles.slide_navigator(visible, sections=result_sections)
+    styles.slide_navigator(visible, sections=result_sections, thumbs=thumbs)
 
 if result_sections:
     visible_by_n = {s["slide_number"]: s for s in visible}

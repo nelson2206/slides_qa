@@ -181,8 +181,10 @@ def check_min_font_size(
 
 # Thresholds for "too much text" — when a content slide crosses these, suggest
 # splitting, restructuring, or replacing prose with a chart/visual.
-HEAVY_TEXT_WORD_THRESHOLD = 120
-HEAVY_TEXT_CHAR_THRESHOLD = 800
+# 250 palabras en un slide es aceptable (≈1500-1700 chars en español); flagueamos
+# sobre ese piso con buffer. Las dos condiciones se evalúan con OR.
+HEAVY_TEXT_WORD_THRESHOLD = 260
+HEAVY_TEXT_CHAR_THRESHOLD = 1900
 
 
 def check_text_density(slide: dict[str, Any]) -> dict[str, Any]:
