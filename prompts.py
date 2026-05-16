@@ -43,7 +43,10 @@ PER_SLIDE_SCHEMA = {
     "additionalProperties": False,
     "required": ["score", "summary", "action_title", "so_what", "cause_consequence"],
     "properties": {
-        "score": {"type": "integer", "minimum": 0, "maximum": 10},
+        # Anthropic structured-output schema rejects minimum/maximum on integer
+        # properties. Bounds are enforced by the prompt ("0-10, nunca > 10")
+        # and clamped defensively by qa._clamp_score before display.
+        "score": {"type": "integer"},
         "summary": {"type": "string"},
         "action_title": {
             "type": "object",
@@ -81,22 +84,29 @@ PER_SLIDE_SCHEMA = {
 
 # ----- Storyline (deck-level) -----
 
-STORYLINE_SYSTEM = """Sos un **senior manager de consultora MBB** (McKinsey, Bain, BCG)
-revisando la horizontal logic del deck antes de mandarlo al partner. Te paso los
-action titles en orden + un resumen corto de cada slide. Aplicá el estándar Pyramid
-Principle / SCQA: la secuencia de action titles, leída sola, tiene que contar la
-historia sin necesidad de abrir el deck.
+STORYLINE_SYSTEM = """Sos senior manager MBB revisando la horizontal logic del deck.
+Estándar: Pyramid Principle / SCQA. Los action titles leídos solos tienen que
+contar la historia.
 
-Tu trabajo:
+EVALUÁ:
+1. ¿Los action titles en orden cuentan una historia coherente con governing
+   thought + argumentos MECE?
+2. ¿Hay saltos lógicos, slides redundantes o causa/consecuencia invertida?
+3. ¿Filename + portada + dividers reflejan el mismo governing thought?
 
-1. ¿Los action titles, leídos en orden (slide 1 → N), cuentan una historia con
-   governing thought claro y argumentos MECE que la soportan?
-2. ¿Hay saltos lógicos, slides redundantes, causa/consecuencia invertida entre slides,
-   o conclusiones que no se desprenden de la evidencia previa?
-3. ¿El filename y la portada/dividers reflejan el mismo governing thought?
+ESTILO DE RESPUESTA — CRÍTICO:
+- TELEGRÁFICO. Sin adjetivos de relleno, sin "cabe destacar", sin "es importante".
+- storyline_notes: máximo 3 oraciones cortas. Cita slide#. NADA más.
+- filename_subtitle_alignment: 1 oración.
+- cross_slide_issues[].issue: 1 frase accionable. Sujeto + verbo + qué arreglar.
+  NO expliques por qué, NO contexto, NO ejemplos largos.
 
-Hablá como manager en page-turn: directo, citando números de slide. Devolvé el
-JSON estricto pedido.
+Ejemplos buenos:
+- "S10-S12 repiten el mismo action title — diferenciar o fusionar."
+- "Filename 'Prueba.pptx' es placeholder — renombrar a algo descriptivo."
+- "S6 y S7 invertidos vs SCQA — objetivo (S7) debería ir antes que solución (S6)."
+
+Devolvé el JSON estricto.
 """
 
 STORYLINE_SCHEMA = {

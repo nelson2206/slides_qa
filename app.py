@@ -412,6 +412,29 @@ if run_button:
     completed_slides: list[dict] = []
     result_obj = None
     error = None
+    run_start_ts = __import__("time").monotonic()
+
+    def _current_sev_counts() -> dict[str, int]:
+        counts = {s: 0 for s in SEVERITY_ORDER}
+        for entry in completed_slides:
+            f = entry["finding"]
+            sev = f.get("severity") or severity_for(f.get("score"))
+            counts[sev] = counts.get(sev, 0) + 1
+        return counts
+
+    def _render_progress(payload: dict | None = None, *, current_label: str | None = None):
+        completed = payload["completed"] if payload else len(completed_slides)
+        total = payload["total"] if payload else max(1, len(completed_slides))
+        elapsed = __import__("time").monotonic() - run_start_ts
+        progress_bar.markdown(
+            getattr(styles, "live_progress_html", lambda *a, **kw: "")(
+                completed, total,
+                sev_counts=_current_sev_counts(),
+                elapsed_s=elapsed,
+                current_label=current_label,
+            ),
+            unsafe_allow_html=True,
+        )
 
     def _render_live_table():
         if not completed_slides:
@@ -436,10 +459,10 @@ if run_button:
             status_box.info(payload)
         elif kind == "slide_done":
             completed_slides.append(payload)
-            progress_bar.progress(
-                payload["completed"] / max(1, payload["total"]),
-                text=f"{payload['completed']} / {payload['total']} slides",
-            )
+            n = payload["slide_number"]
+            title = (payload.get("finding") or {}).get("action_title", {}).get("current_title") or ""
+            label = f"{n} · {title[:50]}" + ("…" if len(title) > 50 else "") if title else str(n)
+            _render_progress(payload, current_label=label)
             _render_live_table()
         elif kind == "visual_done":
             status_box.info(f"Visión · {payload['completed']} / {payload['total']}")

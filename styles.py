@@ -506,6 +506,137 @@ hr {
 .qa-cost-panel-accent { color: var(--accent); }
 
 /* ──────────────────────────────────────────────
+   Live progress dashboard (replaces st.progress during a run)
+   ────────────────────────────────────────────── */
+.qa-prog {
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  margin: 0.6rem 0 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.qa-prog-head {
+  display: flex;
+  align-items: baseline;
+  gap: 22px;
+}
+.qa-prog-pct {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--accent);
+  line-height: 1;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  min-width: 100px;
+}
+.qa-prog-pct-sym {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-left: 2px;
+  opacity: 0.6;
+}
+.qa-prog-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.qa-prog-fraction {
+  font-size: 0.92rem;
+  color: var(--text);
+  letter-spacing: -0.005em;
+}
+.qa-prog-fraction strong {
+  font-weight: 700;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+.qa-prog-eta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.qa-prog-current {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.qa-prog-bar-track {
+  height: 8px;
+  background: rgba(61,13,26,0.06);
+  border-radius: 100px;
+  overflow: hidden;
+}
+.qa-prog-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, #c43b62 100%);
+  border-radius: 100px;
+  transition: width 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: 0 0 12px rgba(233,78,119,0.45);
+  position: relative;
+  overflow: hidden;
+}
+/* Animated shimmer over the bar fill */
+.qa-prog-bar-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,255,255,0.30) 50%,
+    transparent 100%);
+  animation: qa-prog-shimmer 1.4s linear infinite;
+}
+.qa-prog-bar-fill.done {
+  background: linear-gradient(90deg, #2dba8a 0%, #1a8f66 100%);
+  box-shadow: 0 0 12px rgba(45,186,138,0.45);
+}
+.qa-prog-bar-fill.done::after { animation: none; }
+@keyframes qa-prog-shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.qa-prog-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.qa-prog-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 100px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text);
+  transition: transform 180ms ease;
+}
+.qa-prog-chip.empty {
+  opacity: 0.4;
+}
+.qa-prog-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 100px;
+}
+.qa-prog-chip-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.qa-prog-chip-val {
+  font-weight: 800;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  color: var(--text);
+}
+
+/* ──────────────────────────────────────────────
    Summary cards row (results header KPIs)
    ────────────────────────────────────────────── */
 .qa-summary-row {
@@ -1621,6 +1752,75 @@ def nav_visibility_observer(trigger_id: str) -> None:
 </script>
 """,
         height=0,
+    )
+
+
+def live_progress_html(
+    completed: int,
+    total: int,
+    *,
+    sev_counts: dict[str, int] | None = None,
+    elapsed_s: float | None = None,
+    current_label: str | None = None,
+) -> str:
+    """Build a rich progress dashboard: big percentage + bar + per-severity
+    pills + ETA + current slide. Designed to replace the default st.progress."""
+    sev_counts = sev_counts or {}
+    pct = (completed / total * 100) if total > 0 else 0
+    pct_int = int(round(pct))
+
+    # ETA based on linear extrapolation of elapsed time
+    eta_html = ""
+    if elapsed_s and completed > 0 and completed < total:
+        per_slide = elapsed_s / completed
+        remaining_s = per_slide * (total - completed)
+        if remaining_s < 60:
+            eta_text = f"~{int(remaining_s)}s restantes"
+        else:
+            eta_text = f"~{int(remaining_s // 60)}m {int(remaining_s % 60)}s restantes"
+        eta_html = f'<span class="qa-prog-eta">{_escape_html(eta_text)}</span>'
+
+    counts_html = ""
+    if sev_counts:
+        chips = []
+        for sev, color, label in (
+            ("critical", "#e94e77", "Critical"),
+            ("warning",  "#f0a429", "Warning"),
+            ("nit",      "#4b8ef0", "Nit"),
+            ("ok",       "#2dba8a", "OK"),
+        ):
+            n = sev_counts.get(sev, 0)
+            cls = "qa-prog-chip" + (" empty" if n == 0 else "")
+            chips.append(
+                f'<span class="{cls}"><span class="qa-prog-chip-dot" style="background:{color}"></span>'
+                f'<span class="qa-prog-chip-label">{label}</span>'
+                f'<span class="qa-prog-chip-val">{n}</span></span>'
+            )
+        counts_html = '<div class="qa-prog-chips">' + "".join(chips) + '</div>'
+
+    current_html = (
+        f'<div class="qa-prog-current">Slide {_escape_html(str(current_label))}</div>'
+        if current_label else ""
+    )
+
+    done_status = pct >= 100
+    bar_class = "qa-prog-bar-fill" + (" done" if done_status else "")
+
+    return (
+        '<div class="qa-prog">'
+        '<div class="qa-prog-head">'
+        f'<div class="qa-prog-pct">{pct_int}<span class="qa-prog-pct-sym">%</span></div>'
+        '<div class="qa-prog-meta">'
+        f'<div class="qa-prog-fraction"><strong>{completed}</strong> / {total} slides analizados</div>'
+        f'{eta_html}'
+        f'{current_html}'
+        '</div>'
+        '</div>'
+        '<div class="qa-prog-bar-track">'
+        f'<div class="{bar_class}" style="width: {pct:.1f}%;"></div>'
+        '</div>'
+        f'{counts_html}'
+        '</div>'
     )
 
 
