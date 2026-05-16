@@ -647,13 +647,10 @@ hr {
    Dark panel with one colored brick per slide. Section names labeled below.
    ────────────────────────────────────────────── */
 /* The navigator uses position: fixed (sticky was unreliable inside
-   Streamlit's layout) so it's pinned to the viewport. By default the
-   panel is always visible.
-
-   On browsers that support scroll-driven animations (Chrome 115+ /
-   Edge 115+ / Safari 17.5+) we hide it until the user scrolls past the
-   600px mark — that puts the appearance right after the hero + filters
-   section. Older browsers gracefully fall back to "always visible". */
+   Streamlit's layout, and scroll-timeline doesn't see Streamlit's
+   scroll context since the scroll happens on a nested container, not
+   the document root). Always visible — the user can scroll the slide
+   cards behind it without losing the navigator. */
 .qa-nav {
   position: fixed;
   top: 3.5rem;
@@ -666,20 +663,6 @@ hr {
   padding: 12px 16px 10px;
   box-shadow: 0 10px 28px rgba(20, 4, 10, 0.32);
   border: 1px solid rgba(255,255,255,0.05);
-}
-
-/* Scroll-driven visibility: hidden initially, fades in between 480-680px scroll. */
-@supports (animation-timeline: scroll(root)) {
-  .qa-nav {
-    opacity: 0;
-    pointer-events: none;
-    animation: qa-nav-appear linear both;
-    animation-timeline: scroll(root);
-    animation-range: 480px 680px;
-  }
-}
-@keyframes qa-nav-appear {
-  to { opacity: 1; pointer-events: auto; }
 }
 
 .qa-nav-spacer { display: none; }
