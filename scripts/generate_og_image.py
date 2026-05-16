@@ -122,16 +122,16 @@ def main() -> None:
     eyebrow_y = 175
     eyebrow_x = 100
     draw.ellipse([eyebrow_x, eyebrow_y + 10, eyebrow_x + 14, eyebrow_y + 24], fill=ACCENT)
-    draw.text((eyebrow_x + 26, eyebrow_y + 4), "AUDITORÍA DE PRESENTACIONES",
+    draw.text((eyebrow_x + 26, eyebrow_y + 4), "EL DETECTIVE DE TUS DECKS",
               font=eyebrow_font, fill=ACCENT)
 
     # Title
-    title_font = _load_font(108, bold=True)
-    draw.text((100, 230), "PPT QA Agent", font=title_font, fill=WHITE)
+    title_font = _load_font(140, bold=True)
+    draw.text((100, 220), "Holmes", font=title_font, fill=WHITE)
 
     # Subtitle
     subtitle_font = _load_font(34)
-    draw.text((100, 380), "Auditoría MBB para tus decks de consultoría",
+    draw.text((100, 390), "Auditoría MBB para tus decks de consultoría",
               font=subtitle_font, fill=(235, 230, 230))
 
     # Chips at the bottom — draw on a separate RGBA layer so the semi-

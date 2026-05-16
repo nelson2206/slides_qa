@@ -30,11 +30,14 @@
   <circle cx="108" cy="150" r="4" fill="#e94e77"/>
   <circle cx="122" cy="150" r="4" fill="#4b8ef0"/>
 
-  <!-- QA badge -->
+  <!-- Holmes monogram badge (with a subtle magnifier ring) -->
   <circle cx="196" cy="200" r="34" fill="#e94e77"/>
   <circle cx="196" cy="200" r="34" fill="none" stroke="white" stroke-width="2" opacity="0.18"/>
-  <text x="196" y="211"
+  <!-- magnifier ring (Holmes detective motif) -->
+  <circle cx="196" cy="200" r="22" fill="none" stroke="white" stroke-width="2.5" opacity="0.85"/>
+  <line x1="212" y1="216" x2="222" y2="226" stroke="white" stroke-width="3.5" stroke-linecap="round" opacity="0.85"/>
+  <text x="196" y="209"
         font-family="Inter, -apple-system, system-ui, sans-serif"
-        font-size="26" font-weight="900" fill="white" text-anchor="middle"
-        letter-spacing="-0.5">QA</text>
+        font-size="22" font-weight="900" fill="white" text-anchor="middle"
+        letter-spacing="-0.5">H</text>
 </svg>

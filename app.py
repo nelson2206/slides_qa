@@ -1,4 +1,4 @@
-"""PPT QA Agent — Streamlit web app (simplified, checklist-style)."""
+"""Holmes — el detective de tus decks. Streamlit web app."""
 
 from __future__ import annotations
 
@@ -32,8 +32,8 @@ from sections import detect_sections
 
 _LOGO_PATH = Path(__file__).parent / "assets" / "logo.svg"
 st.set_page_config(
-    page_title="PPT QA Agent · Auditoría MBB de presentaciones",
-    page_icon=str(_LOGO_PATH) if _LOGO_PATH.exists() else ":bar_chart:",
+    page_title="Holmes — Auditoría MBB de presentaciones",
+    page_icon=str(_LOGO_PATH) if _LOGO_PATH.exists() else ":mag:",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -50,13 +50,13 @@ styles.inject()
 _OG_IMAGE_URL = "https://slides-qa.streamlit.app/app/static/og-image.png"
 st.markdown(
     f'''
-<meta property="og:title" content="PPT QA Agent — Auditoría MBB de presentaciones">
-<meta property="og:description" content="Subí tu .pptx y obtené un checklist de calidad por slide: action titles, so-what, storyline, pie de página, análisis visual.">
+<meta property="og:title" content="Holmes — El detective de tus decks">
+<meta property="og:description" content="Subí tu .pptx y Holmes lo investiga slide por slide: action titles, so-what, storyline, pie de página, análisis visual. Con criterio de senior MBB.">
 <meta property="og:image" content="{_OG_IMAGE_URL}">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="PPT QA Agent — Auditoría MBB de presentaciones">
-<meta name="twitter:description" content="Checklist de calidad por slide con criterio de senior MBB.">
+<meta name="twitter:title" content="Holmes — El detective de tus decks">
+<meta name="twitter:description" content="Auditoría MBB de presentaciones, slide por slide.">
 <meta name="twitter:image" content="{_OG_IMAGE_URL}">
 ''',
     unsafe_allow_html=True,
@@ -68,10 +68,10 @@ st.markdown(
 # ---------------------------------------------------------------------------
 
 styles.hero(
-    "Auditoría de presentaciones",
-    "Tu deck, revisado slide por slide",
-    "Subí un <code>.pptx</code> y obtené un checklist de calidad por slide. "
-    "Modo local gratis · análisis semántico con Claude o GPT-4o.",
+    "El detective de tus decks",
+    "Holmes",
+    "Subí un <code>.pptx</code> y Holmes lo investiga slide por slide con criterio "
+    "de senior MBB. Modo local gratis · análisis semántico con Claude o GPT-4o.",
     chips=["Action titles", "So-what por slide", "Pie de página", "Storyline", "Análisis visual"],
 )
 
