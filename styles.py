@@ -220,36 +220,52 @@ section[data-testid="stSidebar"] {
 }
 
 /* ──────────────────────────────────────────────
-   Metric cards — compact, not gigantic
+   Metric cards — richer styling with subtle gradient + accent corner
    ────────────────────────────────────────────── */
 [data-testid="stMetric"] {
-  background: rgba(255,255,255,0.75);
+  position: relative;
+  background:
+    radial-gradient(ellipse 60% 80% at 100% 0%, rgba(233,78,119,0.06) 0%, transparent 60%),
+    linear-gradient(178deg, #ffffff 0%, var(--surface-2) 100%);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  padding: 12px 16px;
-  box-shadow: var(--shadow-sm);
-  transition: var(--dur-normal) var(--ease-spring);
+  border-radius: 14px;
+  padding: 18px 22px;
+  box-shadow: 0 1px 2px rgba(61,13,26,0.04), 0 4px 12px rgba(61,13,26,0.05);
+  transition: transform 180ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 180ms ease, border-color 180ms ease;
+  overflow: hidden;
+}
+[data-testid="stMetric"]::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--accent) 0%, #c43b62 100%);
+  opacity: 0.85;
 }
 [data-testid="stMetric"]:hover {
-  border-color: var(--border);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  border-color: rgba(233,78,119,0.24);
+  box-shadow: 0 2px 4px rgba(61,13,26,0.05), 0 8px 20px rgba(61,13,26,0.08);
 }
 [data-testid="stMetricLabel"] {
   color: var(--text-muted) !important;
 }
 [data-testid="stMetricLabel"] p {
   color: var(--text-muted) !important;
-  font-size: 0.72rem !important;
-  font-weight: 600 !important;
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.10em;
+  margin-bottom: 6px !important;
 }
 [data-testid="stMetricValue"] {
-  font-size: 1.35rem !important;
-  font-weight: 700 !important;
+  font-size: 2.1rem !important;
+  font-weight: 800 !important;
   color: var(--text-primary) !important;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
+  letter-spacing: -0.028em;
+  line-height: 1.05;
+  font-feature-settings: "tnum" 1, "lnum" 1;
 }
 [data-testid="stMetricDelta"] {
   font-weight: 600 !important;
@@ -326,17 +342,30 @@ section[data-testid="stSidebar"] {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* File uploader — generous, inviting */
+/* File uploader — generous, inviting, with subtle gradient inside */
 [data-testid="stFileUploader"] section {
-  background: rgba(255,255,255,0.6);
-  border: 2px dashed var(--border-strong);
-  border-radius: var(--radius);
-  padding: 24px;
-  transition: var(--dur-normal) var(--ease-spring);
+  background:
+    radial-gradient(ellipse 40% 60% at 50% 0%, rgba(233,78,119,0.05) 0%, transparent 70%),
+    linear-gradient(180deg, #ffffff 0%, var(--surface-2) 100%);
+  border: 2px dashed rgba(233,78,119,0.32);
+  border-radius: 14px;
+  padding: 28px 24px;
+  transition: transform 180ms ease, border-color 180ms ease,
+              box-shadow 180ms ease, background 180ms ease;
 }
 [data-testid="stFileUploader"] section:hover {
   border-color: var(--accent);
-  background: rgba(255,255,255,0.85);
+  background:
+    radial-gradient(ellipse 50% 70% at 50% 0%, rgba(233,78,119,0.10) 0%, transparent 70%),
+    linear-gradient(180deg, #ffffff 0%, #faf2ec 100%);
+  box-shadow: 0 6px 20px rgba(233,78,119,0.12);
+}
+/* Uploaded file chip — match the burgundy palette */
+[data-testid="stFileUploaderFile"] {
+  background: white !important;
+  border: 1px solid rgba(233,78,119,0.18) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 3px rgba(61,13,26,0.06);
 }
 
 /* Radio: accent active state */
@@ -430,13 +459,24 @@ hr {
 }
 
 .qa-section-label {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.10em;
   font-weight: 700;
   color: var(--text-muted);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 4px;
+}
+.qa-section-label::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 100px;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(233,78,119,0.55);
 }
 
 .qa-pill {
