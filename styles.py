@@ -646,11 +646,11 @@ hr {
    Slide navigator — horizontal timeline track
    Dark panel with one colored brick per slide. Section names labeled below.
    ────────────────────────────────────────────── */
-/* The navigator uses position: fixed (sticky was unreliable inside
-   Streamlit's layout, and scroll-timeline doesn't see Streamlit's
-   scroll context since the scroll happens on a nested container, not
-   the document root). Always visible — the user can scroll the slide
-   cards behind it without losing the navigator. */
+/* The navigator uses position: fixed. Visibility is toggled via a body
+   class (`qa-nav-visible`) set/cleared by an IntersectionObserver that
+   watches a sentinel (#qa-nav-trigger) placed right after the overview
+   panel. The nav appears when the user scrolls past the sentinel and
+   disappears when the user scrolls back up to it. */
 .qa-nav {
   position: fixed;
   top: 3.5rem;
@@ -663,6 +663,15 @@ hr {
   padding: 12px 16px 10px;
   box-shadow: 0 10px 28px rgba(20, 4, 10, 0.32);
   border: 1px solid rgba(255,255,255,0.05);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -10px);
+  transition: opacity 220ms ease, transform 260ms ease;
+}
+body.qa-nav-visible .qa-nav {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
 }
 
 .qa-nav-spacer { display: none; }
@@ -1565,6 +1574,75 @@ def scroll_anchor(anchor_id: str, *, top_margin_px: int = 100) -> None:
         f'<div id="{anchor_id}" style="position:relative;height:0;'
         f'margin-top:-{top_margin_px}px;pointer-events:none;"></div>',
         unsafe_allow_html=True,
+    )
+
+
+def nav_visibility_observer(trigger_id: str) -> None:
+    """Inject an IntersectionObserver that toggles `body.qa-nav-visible`
+    based on whether the sentinel `#trigger_id` is above the viewport.
+
+    Behaviour:
+      - Sentinel below viewport (user above it)  → class removed, nav hidden
+      - Sentinel inside viewport                  → class removed, nav hidden
+      - Sentinel above viewport (scrolled past)  → class added, nav visible
+
+    Idempotent across Streamlit reruns: any previous observer is disconnected
+    before a new one is bound. Cheap to call on every render.
+    """
+    import streamlit.components.v1 as components
+
+    components.html(
+        f"""
+<script>
+  (function() {{
+    var doc = window.parent.document;
+    var trig = doc.getElementById({trigger_id!r});
+    if (!trig) {{
+      doc.body.classList.remove('qa-nav-visible');
+      return;
+    }}
+    if (window.parent.__qaNavObserver) {{
+      try {{ window.parent.__qaNavObserver.disconnect(); }} catch (e) {{}}
+    }}
+    var obs = new IntersectionObserver(function(entries) {{
+      entries.forEach(function(entry) {{
+        var pastTrigger = !entry.isIntersecting
+                          && entry.boundingClientRect.top < 0;
+        if (pastTrigger) {{
+          doc.body.classList.add('qa-nav-visible');
+        }} else {{
+          doc.body.classList.remove('qa-nav-visible');
+        }}
+      }});
+    }}, {{rootMargin: '0px', threshold: 0}});
+    obs.observe(trig);
+    window.parent.__qaNavObserver = obs;
+  }})();
+</script>
+""",
+        height=0,
+    )
+
+
+def hide_nav() -> None:
+    """Force-hide the navigator (and disconnect any active observer). Call on
+    page renders where results aren't ready, so stale `qa-nav-visible` class
+    from a previous session/file is cleared."""
+    import streamlit.components.v1 as components
+    components.html(
+        """
+<script>
+  (function() {
+    var doc = window.parent.document;
+    doc.body.classList.remove('qa-nav-visible');
+    if (window.parent.__qaNavObserver) {
+      try { window.parent.__qaNavObserver.disconnect(); } catch (e) {}
+      window.parent.__qaNavObserver = null;
+    }
+  })();
+</script>
+""",
+        height=0,
     )
 
 

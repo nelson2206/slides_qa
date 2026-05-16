@@ -116,6 +116,7 @@ if uploaded is None:
     for k in list(st.session_state.keys()):
         if k.startswith(("qa_result", "qa_est", "qa_file_hash", "qa_thumbs")):
             del st.session_state[k]
+    styles.hide_nav()
     st.markdown("")
     st.info("Esperando un `.pptx`. El modo local no gasta tokens.")
     st.stop()
@@ -473,6 +474,9 @@ else:
 
 result = st.session_state.get("qa_result")
 if result is None:
+    # No results yet → ensure the floating navigator isn't lingering from a
+    # previous file's session.
+    styles.hide_nav()
     st.stop()
 
 if est is None:
@@ -589,6 +593,12 @@ if "actual_cost" in result and est is not None:
 
 # ───────── Análisis general del deck (promoted from expander) ─────────
 styles.overview_panel(overview, sev_counts, total)
+
+# Sentinel that drives navigator visibility. Placed right after the overview
+# so the navigator appears the moment the user scrolls past it, and hides
+# again when they scroll back up to it.
+styles.scroll_anchor("qa-nav-trigger", top_margin_px=0)
+styles.nav_visibility_observer("qa-nav-trigger")
 
 
 # ───────── Filtros ─────────
