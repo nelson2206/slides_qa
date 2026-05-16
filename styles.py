@@ -566,6 +566,159 @@ hr {
 }
 
 /* ──────────────────────────────────────────────
+   Hero — atmospheric dark gradient with dot pattern
+   Inspired by AI/data-flow visuals.
+   ────────────────────────────────────────────── */
+.qa-hero {
+  position: relative;
+  border-radius: 24px;
+  padding: 56px 48px 60px 48px;
+  margin: 6px 0 28px 0;
+  background:
+    /* warm pink glow top-right */
+    radial-gradient(ellipse 60% 70% at 78% 22%, rgba(233,78,119,0.55) 0%, transparent 55%),
+    /* purple wash bottom-left */
+    radial-gradient(ellipse 50% 60% at 22% 78%, rgba(108,55,168,0.42) 0%, transparent 55%),
+    /* blue-teal accent bottom-center */
+    radial-gradient(ellipse 70% 50% at 50% 110%, rgba(20,90,150,0.38) 0%, transparent 60%),
+    /* subtle amber highlight top-left */
+    radial-gradient(ellipse 30% 35% at 8% 8%, rgba(255,180,90,0.18) 0%, transparent 60%),
+    /* base burgundy depth */
+    linear-gradient(135deg, #14040a 0%, #2e0a16 45%, #3d0d1a 100%);
+  color: white;
+  overflow: hidden;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: 0 20px 60px rgba(61,13,26,0.28), 0 4px 12px rgba(61,13,26,0.12);
+}
+
+/* Dot pattern overlay — fades in from edges via mask */
+.qa-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.16) 1px, transparent 1.6px);
+  background-size: 16px 16px;
+  background-position: 0 0;
+  mask-image: linear-gradient(110deg, transparent 0%, black 22%, black 78%, transparent 100%);
+  -webkit-mask-image: linear-gradient(110deg, transparent 0%, black 22%, black 78%, transparent 100%);
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* Soft blurred orbs for depth */
+.qa-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(ellipse 28% 18% at 82% 38%, rgba(255,220,140,0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 22% 14% at 18% 62%, rgba(140,90,220,0.25) 0%, transparent 60%),
+    radial-gradient(ellipse 18% 12% at 92% 78%, rgba(255,120,170,0.20) 0%, transparent 60%);
+  pointer-events: none;
+  filter: blur(24px);
+}
+
+.qa-hero-content {
+  position: relative;
+  z-index: 2;
+  max-width: 720px;
+}
+
+.qa-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 18px;
+  text-shadow: 0 0 24px rgba(233,78,119,0.65);
+}
+.qa-hero-eyebrow::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 100px;
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(233,78,119,0.9);
+}
+
+.qa-hero h1 {
+  color: white !important;
+  font-size: 2.8rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.026em !important;
+  line-height: 1.05 !important;
+  margin: 0 0 18px 0 !important;
+  text-shadow: 0 2px 30px rgba(0,0,0,0.4);
+}
+
+.qa-hero p {
+  color: rgba(255,255,255,0.78) !important;
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 0;
+  max-width: 60ch;
+  font-weight: 400;
+}
+
+.qa-hero code {
+  background: rgba(233,78,119,0.18) !important;
+  color: rgba(255,255,255,0.92) !important;
+  border: 1px solid rgba(233,78,119,0.35);
+  padding: 1px 7px !important;
+  border-radius: 4px !important;
+  font-weight: 600 !important;
+}
+
+/* Small floating chips at the bottom of the hero — show what's evaluated */
+.qa-hero-chips {
+  position: relative;
+  z-index: 2;
+  margin-top: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.qa-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 100px;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.85);
+  font-weight: 500;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: var(--dur-normal) var(--ease-spring);
+}
+.qa-hero-chip:hover {
+  background: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.22);
+}
+.qa-hero-chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 100px;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(233,78,119,0.8);
+}
+
+/* Responsive: shrink on narrow screens */
+@media (max-width: 720px) {
+  .qa-hero { padding: 36px 28px; min-height: 220px; }
+  .qa-hero h1 { font-size: 2rem !important; }
+}
+
+/* ──────────────────────────────────────────────
    Slide card + checklist (per-slide layout)
    ────────────────────────────────────────────── */
 .qa-slide-card {
@@ -746,6 +899,41 @@ def inject() -> None:
 def eyebrow(text: str) -> None:
     """Small uppercase accent text above a section heading."""
     st.markdown(f'<span class="qa-eyebrow">{text}</span>', unsafe_allow_html=True)
+
+
+def hero(
+    eyebrow_text: str,
+    title: str,
+    description_html: str,
+    chips: list[str] | None = None,
+) -> None:
+    """Atmospheric hero section. Renders a dark gradient card with the
+    page title and subtitle, plus optional small chips listing capabilities.
+
+    `description_html` is rendered as-is (allows inline <code> etc.) —
+    pre-escape any user-supplied content before passing.
+    """
+    chips_html = ""
+    if chips:
+        chip_items = "".join(
+            f'<span class="qa-hero-chip">'
+            f'<span class="qa-hero-chip-dot"></span>{_escape_html(c)}'
+            f'</span>'
+            for c in chips
+        )
+        chips_html = f'<div class="qa-hero-chips">{chip_items}</div>'
+
+    html = (
+        '<div class="qa-hero">'
+        '<div class="qa-hero-content">'
+        f'<div class="qa-hero-eyebrow">{_escape_html(eyebrow_text)}</div>'
+        f'<h1>{_escape_html(title)}</h1>'
+        f'<p>{description_html}</p>'
+        '</div>'
+        f'{chips_html}'
+        '</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def section_label(text: str) -> None:

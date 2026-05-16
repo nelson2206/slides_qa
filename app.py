@@ -42,16 +42,12 @@ styles.inject()
 # Header
 # ---------------------------------------------------------------------------
 
-styles.eyebrow("Auditoría de presentaciones")
-st.markdown("# Tu deck, revisado slide por slide")
-st.markdown(
-    '<p style="color: var(--text-muted); font-size: 0.95rem; max-width: 62ch; '
-    'margin: -0.3rem 0 1rem 0; line-height: 1.5;">'
+styles.hero(
+    "Auditoría de presentaciones",
+    "Tu deck, revisado slide por slide",
     "Subí un <code>.pptx</code> y obtené un checklist de calidad por slide. "
-    "Si configurás una API key, el análisis usa Claude o GPT-4o para juicios "
-    "semánticos. Sin key corre el modo local (gratis, solo checks estructurales)."
-    '</p>',
-    unsafe_allow_html=True,
+    "Modo local gratis · análisis semántico con Claude o GPT-4o.",
+    chips=["Action titles", "So-what por slide", "Pie de página", "Storyline", "Análisis visual"],
 )
 
 
