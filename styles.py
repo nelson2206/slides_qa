@@ -166,15 +166,32 @@ section[data-testid="stSidebar"] {
 
 /* Primary button = burgundy → pink hover */
 .stButton > button[kind="primary"] {
-  background: var(--bg-panel);
-  color: white;
-  border-color: var(--bg-panel);
+  background: var(--bg-panel) !important;
+  color: white !important;
+  border-color: var(--bg-panel) !important;
   box-shadow: 0 4px 12px rgba(61,13,26,0.18);
 }
 .stButton > button[kind="primary"]:hover {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
   box-shadow: 0 8px 20px rgba(233,78,119,0.30);
+}
+
+/* CRITICAL: text inside ANY button must inherit color from the button,
+   not from the global markdown-container color rule. Streamlit nests
+   button labels inside a [data-testid="stMarkdownContainer"] > p, and
+   our global rule above turned those black on the burgundy primary. */
+.stButton > button p,
+.stButton > button [data-testid="stMarkdownContainer"],
+.stButton > button [data-testid="stMarkdownContainer"] p,
+.stDownloadButton > button p,
+.stDownloadButton > button [data-testid="stMarkdownContainer"],
+.stDownloadButton > button [data-testid="stMarkdownContainer"] p {
+  color: inherit !important;
+  font-family: inherit !important;
+  font-weight: inherit !important;
+  font-size: inherit !important;
+  margin: 0 !important;
 }
 
 /* Download buttons */

@@ -49,14 +49,14 @@ styles.inject()
 # Header
 # ---------------------------------------------------------------------------
 
-styles.eyebrow("PPT QA Agent")
-st.markdown("# Calidad por slide, sin discusión")
+styles.eyebrow("Auditoría de presentaciones")
+st.markdown("# Tu deck, revisado slide por slide")
 st.markdown(
     '<p style="color: var(--text-muted); font-size: 0.95rem; max-width: 62ch; '
     'margin: -0.3rem 0 1rem 0; line-height: 1.5;">'
-    "Action titles, so-what, storyline, longitud de párrafos, pie de página, "
-    "consistencia editorial y análisis visual. Modo local sin API · modo completo "
-    "con Claude o GPT-4o."
+    "Subí un <code>.pptx</code> y obtené un reporte de calidad estructurado por "
+    "slide en segundos. Empezá en modo local (sin API, sin costo) y pasá a Claude "
+    "o GPT-4o cuando quieras análisis semántico."
     '</p>',
     unsafe_allow_html=True,
 )
@@ -217,17 +217,33 @@ uploaded = st.file_uploader(
 )
 
 if uploaded is None:
+    # Clear stale state if user removed the file
+    for k in list(st.session_state.keys()):
+        if k.startswith(("qa_result", "qa_est", "qa_file_hash")):
+            del st.session_state[k]
     st.markdown("")
     st.info("Esperando un `.pptx`. El modo local no gasta tokens.")
     st.stop()
 
+
+# Stable hash of the uploaded bytes — survives reruns within a session.
+import hashlib as _hashlib
+_file_bytes = uploaded.getvalue()
+file_hash = _hashlib.sha1(_file_bytes).hexdigest()[:16]
+
 with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
-    tmp.write(uploaded.getvalue())
+    tmp.write(_file_bytes)
     tmp_path = Path(tmp.name)
 
+# Cache the extracted deck by file hash — rerun-cheap (no re-extraction).
+deck_cache_key = f"deck__{file_hash}"
 try:
-    with st.spinner("Extrayendo contenido..."):
-        deck = extract_deck(tmp_path)
+    if deck_cache_key in st.session_state:
+        deck = st.session_state[deck_cache_key]
+    else:
+        with st.spinner("Extrayendo contenido..."):
+            deck = extract_deck(tmp_path)
+        st.session_state[deck_cache_key] = deck
 except Exception as e:
     st.error(f"Error al extraer: {e}")
     try:
@@ -236,15 +252,15 @@ except Exception as e:
         pass
     st.stop()
 
+# If user uploaded a different file, drop the cached analysis result.
+if st.session_state.get("qa_file_hash") and st.session_state["qa_file_hash"] != file_hash:
+    for k in ("qa_result", "qa_est"):
+        st.session_state.pop(k, None)
+st.session_state["qa_file_hash"] = file_hash
+
 file_name = uploaded.name
 slides_with_visuals = [s for s in deck["slides"] if s.get("has_visuals")]
 n_visuals = len(slides_with_visuals)
-
-
-def _format_size(bytes_n: int) -> str:
-    if bytes_n < 1024 * 1024:
-        return f"{bytes_n / 1024:.0f} KB"
-    return f"{bytes_n / (1024 * 1024):.1f} MB"
 
 
 # Cached, session-scoped thumbnail loader. Keyed by (file hash, mode).
@@ -294,13 +310,11 @@ def _get_thumbnails(
     return thumbs
 
 
-# Compact deck summary
+# Compact deck summary — only the two metrics that actually matter for the user
 st.markdown("")
-c1, c2, c3, c4 = st.columns(4)
+c1, c2 = st.columns(2)
 c1.metric("Slides", deck["slide_count"])
 c2.metric("Con imágenes", n_visuals)
-c3.metric("Tamaño slide", f'{deck["slide_width_in"]:.1f}″ × {deck["slide_height_in"]:.1f}″')
-c4.metric("Peso archivo", _format_size(uploaded.size))
 
 with st.expander("Ver contenido extraído"):
     st.json(deck, expanded=False)
@@ -430,116 +444,133 @@ else:
 st.markdown("")
 run_button = st.button(run_label, type="primary", use_container_width=True, disabled=not can_run)
 
-if not run_button:
+
+# ---------------------------------------------------------------------------
+# Pipeline run — only when button is clicked. Cached result survives reruns
+# triggered by widget interactions (filters, checkboxes, etc.).
+# ---------------------------------------------------------------------------
+
+if run_button:
+    images_by_slide: dict | None = None
+    if mode == "full" and visual_enabled:
+        with st.spinner("Extrayendo imágenes..."):
+            images_by_slide = extract_images(tmp_path)
+            if slides_to_process < deck["slide_count"]:
+                images_by_slide = {n: imgs for n, imgs in images_by_slide.items() if n <= slides_to_process}
+
+    # Render thumbnails (needs tmp_path for PowerPoint/LibreOffice mode)
+    thumbs: dict[int, bytes] = {}
+    if thumb_mode != "off":
+        thumbs = _get_thumbnails(tmp_path, deck_to_run, thumb_mode)
+
     try:
         tmp_path.unlink()
     except OSError:
         pass
-    st.stop()
 
-
-# ---------------------------------------------------------------------------
-# Pipeline run
-# ---------------------------------------------------------------------------
-
-images_by_slide: dict | None = None
-if mode == "full" and visual_enabled:
-    with st.spinner("Extrayendo imágenes..."):
-        images_by_slide = extract_images(tmp_path)
-        if slides_to_process < deck["slide_count"]:
-            images_by_slide = {n: imgs for n, imgs in images_by_slide.items() if n <= slides_to_process}
-
-# Render thumbnails (needs tmp_path for PowerPoint mode)
-thumbs: dict[int, bytes] = {}
-if thumb_mode != "off":
-    thumbs = _get_thumbnails(tmp_path, deck_to_run, thumb_mode)
-
-try:
-    tmp_path.unlink()
-except OSError:
-    pass
-
-runner = (
-    run_local_qa(file_name, deck_to_run)
-    if mode == "local"
-    else run_full_qa(
-        file_name, deck_to_run,
-        api_key=api_key,
-        provider=selected_provider,
-        max_workers=workers,
-        skip_roles=skip_roles,
-        visual_analysis=visual_enabled,
-        images_by_slide=images_by_slide or {},
-    )
-)
-
-# Streaming UI
-st.markdown("---")
-styles.section_label("Progreso")
-status_box = st.empty()
-progress_bar = st.empty()
-live_table = st.empty()
-
-completed_slides: list[dict] = []
-visual_completed: list[dict] = []
-result = None
-error = None
-
-
-def _render_live_table():
-    if not completed_slides:
-        return
-    rows = []
-    for entry in completed_slides:
-        f = entry["finding"]
-        title = f.get("action_title", {}).get("current_title", "")
-        title_disp = (title[:60] + "…") if len(title) > 60 else title
-        is_at = f.get("action_title", {}).get("is_action_title")
-        sw = f.get("so_what", {}).get("present")
-        sev = f.get("severity") or severity_for(f.get("score"))
-        rows.append({
-            "": SEVERITY_EMOJI.get(sev, "·"),
-            "Slide": entry["slide_number"],
-            "Sev.": SEVERITY_LABELS.get(sev, "—"),
-            "Score": f"{f.get('score', '?')}/10",
-            "Action title": "✓" if is_at else "✗" if is_at is False else "—",
-            "So-what": "✓" if sw else "✗" if sw is False else "—",
-            "Título": title_disp,
-        })
-    rows.sort(key=lambda r: r["Slide"])
-    live_table.dataframe(rows, use_container_width=True, hide_index=True)
-
-
-for kind, payload in runner:
-    if kind == "status":
-        status_box.info(payload)
-    elif kind == "slide_done":
-        completed_slides.append(payload)
-        progress_bar.progress(
-            payload["completed"] / max(1, payload["total"]),
-            text=f"{payload['completed']} / {payload['total']} slides analizadas",
+    runner = (
+        run_local_qa(file_name, deck_to_run)
+        if mode == "local"
+        else run_full_qa(
+            file_name, deck_to_run,
+            api_key=api_key,
+            provider=selected_provider,
+            max_workers=workers,
+            skip_roles=skip_roles,
+            visual_analysis=visual_enabled,
+            images_by_slide=images_by_slide or {},
         )
-        _render_live_table()
-    elif kind == "visual_done":
-        visual_completed.append(payload)
-        status_box.info(f"Visión · {payload['completed']} / {payload['total']}")
-    elif kind == "error":
-        error = payload
-        break
-    elif kind == "result":
-        result = payload
+    )
 
-if error:
-    status_box.error(f"Error · {error}")
-    st.stop()
+    # Streaming UI for the run
+    st.markdown("---")
+    styles.section_label("Progreso")
+    status_box = st.empty()
+    progress_bar = st.empty()
+    live_table = st.empty()
 
+    completed_slides: list[dict] = []
+    result_obj = None
+    error = None
+
+    def _render_live_table():
+        if not completed_slides:
+            return
+        rows = []
+        for entry in completed_slides:
+            f = entry["finding"]
+            title = f.get("action_title", {}).get("current_title", "")
+            title_disp = (title[:60] + "…") if len(title) > 60 else title
+            is_at = f.get("action_title", {}).get("is_action_title")
+            sw = f.get("so_what", {}).get("present")
+            sev = f.get("severity") or severity_for(f.get("score"))
+            rows.append({
+                "": SEVERITY_EMOJI.get(sev, "·"),
+                "Slide": entry["slide_number"],
+                "Sev.": SEVERITY_LABELS.get(sev, "—"),
+                "Score": f"{f.get('score', '?')}/10",
+                "Action title": "✓" if is_at else "✗" if is_at is False else "—",
+                "So-what": "✓" if sw else "✗" if sw is False else "—",
+                "Título": title_disp,
+            })
+        rows.sort(key=lambda r: r["Slide"])
+        live_table.dataframe(rows, use_container_width=True, hide_index=True)
+
+    for kind, payload in runner:
+        if kind == "status":
+            status_box.info(payload)
+        elif kind == "slide_done":
+            completed_slides.append(payload)
+            progress_bar.progress(
+                payload["completed"] / max(1, payload["total"]),
+                text=f"{payload['completed']} / {payload['total']} slides analizadas",
+            )
+            _render_live_table()
+        elif kind == "visual_done":
+            status_box.info(f"Visión · {payload['completed']} / {payload['total']}")
+        elif kind == "error":
+            error = payload
+            break
+        elif kind == "result":
+            result_obj = payload
+
+    if error:
+        status_box.error(f"Error · {error}")
+        st.stop()
+    if result_obj is None:
+        status_box.error("No se recibió resultado.")
+        st.stop()
+
+    status_box.success("Análisis completo.")
+    progress_bar.empty()
+    live_table.empty()
+
+    # Persist for subsequent reruns (filter toggles, etc.)
+    st.session_state["qa_result"] = result_obj
+    st.session_state["qa_est"] = est
+    st.session_state["qa_thumbs"] = thumbs
+
+else:
+    # No button click on this rerun — clean up tmp file
+    try:
+        tmp_path.unlink()
+    except OSError:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Read result from session_state (whether just-run or from previous click)
+# ---------------------------------------------------------------------------
+
+result = st.session_state.get("qa_result")
 if result is None:
-    status_box.error("No se recibió resultado.")
+    # User hasn't clicked the button yet — stop here
     st.stop()
 
-status_box.success("Análisis completo.")
-progress_bar.empty()
-live_table.empty()
+# Restore est + thumbs from session for the cached path
+if est is None:
+    est = st.session_state.get("qa_est")
+thumbs = st.session_state.get("qa_thumbs", {})
 
 
 # ---------------------------------------------------------------------------
@@ -849,15 +880,14 @@ with tab_overview:
 
 # -------- Per slide --------
 with tab_slides:
-    # Severity filter — multi-select with counts. Defaults to showing critical+warning only.
+    # Severity filter — multi-select with counts. By default show ALL severities.
     styles.section_label("Filtrar por severidad")
     sev_cols = st.columns(4)
     show_sev: dict[str, bool] = {}
-    sev_defaults = {"critical": True, "warning": True, "nit": False, "ok": False}
     for i, sev in enumerate(SEVERITY_ORDER):
         with sev_cols[i]:
             label = f"{SEVERITY_EMOJI[sev]} {SEVERITY_LABELS[sev]} ({sev_counts[sev]})"
-            show_sev[sev] = st.checkbox(label, value=sev_defaults[sev], key=f"sev_{sev}")
+            show_sev[sev] = st.checkbox(label, value=True, key=f"sev_{sev}")
 
     st.markdown("")
     f1, f2, f3 = st.columns(3)
@@ -886,8 +916,8 @@ with tab_slides:
         score_text = f"{score}/10" if score is not None else "—"
         sev_label = f"{SEVERITY_EMOJI[sev]} {SEVERITY_LABELS[sev].upper()}"
         header = f"{sev_label}  ·  Slide {n}  ·  {score_text}  ·  {role}{skipped_tag}  ·  {title_disp}"
-        # Default expanded: critical only. User can toggle "Expandir todos".
-        expanded = expand_all or sev == "critical"
+        # All collapsed by default — user opens what they want
+        expanded = expand_all
 
         with st.expander(header, expanded=expanded):
             # Thumbnail (if rendered) — show above the summary
