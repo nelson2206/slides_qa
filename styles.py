@@ -1093,6 +1093,34 @@ body.qa-nav-visible .qa-nav {
 .qa-slide-card,
 .qa-section-divider { scroll-margin-top: 200px; }
 
+/* Skipped slide card — compact, no checklist, single clear banner */
+.qa-slide-card.skipped-card {
+  opacity: 0.86;
+}
+.qa-skipped-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px;
+  background: rgba(61,13,26,0.04);
+  border: 1px dashed rgba(61,13,26,0.18);
+  border-radius: 10px;
+  align-self: flex-start;
+}
+.qa-skipped-banner-label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  font-weight: 700;
+  color: var(--accent);
+}
+.qa-skipped-banner-msg {
+  font-size: 0.92rem;
+  color: var(--text);
+  letter-spacing: -0.005em;
+  font-weight: 500;
+}
+
 /* ──────────────────────────────────────────────
    Deck overview panel — promoted from expander
    ────────────────────────────────────────────── */
@@ -2239,6 +2267,45 @@ def slide_card_html(slide: dict, thumb_bytes: bytes | None = None) -> str:
         thumb_html = (
             '<div class="qa-slide-thumb">'
             f'<img src="data:image/png;base64,{b64}" alt="Slide {n}" />'
+            '</div>'
+        )
+
+    # ───── Compact skipped card ─────
+    # When the slide is structurally skipped (cover/index/divider/closing/
+    # confidentiality/references/credentials/cv/minimal) we render a much
+    # tighter card with a single clear banner instead of the full checklist
+    # with "Saltada (role=X)" on every row.
+    _SKIPPED_ROLE_MESSAGES = {
+        "cover":           ("Carátula",                 "Slide de portada — no se evalúa."),
+        "index":           ("Índice / Agenda",          "Slide de índice — no se evalúa."),
+        "divider":         ("Separador de sección",     "Asumido como separador de sección — no se evalúa."),
+        "closing":         ("Slide de cierre",          "Slide de cierre (gracias / contacto / Q&A) — no se evalúa."),
+        "confidentiality": ("Aviso de confidencialidad","Slide legal / confidencialidad — no se evalúa."),
+        "references":      ("Referencias",              "Slide de referencias / clientes — no se evalúa."),
+        "credentials":     ("Credenciales",             "Slide de credenciales — no se evalúa."),
+        "cv":              ("CV del equipo",            "CV / perfil de consultor — no se evalúa."),
+        "minimal":         ("Slide mínima",             "Slide con muy poco contenido — no se evalúa."),
+    }
+    if slide.get("_skipped") and role in _SKIPPED_ROLE_MESSAGES:
+        role_label, message = _SKIPPED_ROLE_MESSAGES[role]
+        return (
+            f'<div class="qa-slide-card sev-{sev} skipped-card" id="qa-slide-{n}">'
+            '<div class="qa-slide-header">'
+            f'<span class="qa-slide-sev">{sev_emoji}</span>'
+            f'<span class="qa-slide-num">Slide {n}</span>'
+            f'<span class="qa-slide-score sev-{sev}">{score_text}</span>'
+            f'<span class="qa-slide-role">{_escape_html(role)}</span>'
+            f'<span class="qa-slide-title">{_escape_html(title_disp)}</span>'
+            '</div>'
+            '<div class="qa-slide-body">'
+            f'{thumb_html}'
+            '<div class="qa-slide-checks">'
+            '<div class="qa-skipped-banner">'
+            f'<div class="qa-skipped-banner-label">{_escape_html(role_label)}</div>'
+            f'<div class="qa-skipped-banner-msg">{_escape_html(message)}</div>'
+            '</div>'
+            '</div>'
+            '</div>'
             '</div>'
         )
 

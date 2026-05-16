@@ -325,6 +325,45 @@ def test_classify_slide_role_cv():
         assert classify_slide_role(slide) == "cv", f"Failed on {kw!r}"
 
 
+def test_classify_slide_role_section_divider_by_exact_title():
+    """Slides titled with common consulting-deck section names are dividers
+    even on a regular layout (and with a small body)."""
+    for title in (
+        "Contexto y objetivos",
+        "Nuestro enfoque",
+        "Metodología de trabajo",
+        "Plan de trabajo",
+        "Equipo de trabajo",
+        "Valor añadido y aceleradores Minsait",
+    ):
+        slide = {
+            "slide_number": 7,
+            "layout_name": "Title and Content",
+            "title": title,
+            "shapes": [
+                {"is_title": True, "text": title},
+                {"is_title": False, "text": "Algunos puntos breves"},
+            ],
+        }
+        assert classify_slide_role(slide) == "divider", f"Failed on {title!r}"
+
+
+def test_classify_slide_role_section_divider_falls_through_when_body_is_large():
+    """A real content slide titled 'Nuestro enfoque' with substantial body
+    is content, not divider — exact-title match only applies when the body
+    is small (< 200 chars)."""
+    slide = {
+        "slide_number": 7,
+        "layout_name": "Title and Content",
+        "title": "Nuestro enfoque",
+        "shapes": [
+            {"is_title": True, "text": "Nuestro enfoque"},
+            {"is_title": False, "text": "x" * 500},
+        ],
+    }
+    assert classify_slide_role(slide) == "content_with_title"
+
+
 def test_classify_slide_role_cv_no_false_positives():
     """CV is a 2-letter word — make sure it doesn't match random substrings."""
     # 'MCV', 'cvc', random text — must NOT match

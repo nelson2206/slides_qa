@@ -822,6 +822,29 @@ _CV_TITLE_KEYWORDS = (
     "equipo asignado",
 )
 
+# Common section-divider titles in consulting decks. When a slide's title
+# EXACTLY (post-normalization) matches one of these, we classify it as a
+# divider regardless of layout — these are always structural separators.
+_SECTION_DIVIDER_EXACT_TITLES = (
+    "contexto y objetivos",
+    "contexto",
+    "objetivos",
+    "nuestro enfoque",
+    "enfoque",
+    "valor anadido y aceleradores minsait",
+    "valor anadido y aceleradores",
+    "valor anadido",
+    "aceleradores minsait",
+    "aceleradores",
+    "metodologia de trabajo",
+    "metodologia",
+    "plan de trabajo",
+    "plan",
+    "equipo de trabajo",
+    "equipo",
+    "nuestro equipo",
+)
+
 
 def _title_has_any_keyword(title_norm: str, keywords: tuple[str, ...]) -> bool:
     """Check if a normalized title contains any of the given keywords.
@@ -871,6 +894,20 @@ def classify_slide_role(slide: dict[str, Any], *, total_slides: int | None = Non
     # title contains 'Referencias' or 'Contexto'. Their content is also skipped.
     if any(hint in layout for hint in _DIVIDER_LAYOUT_HINTS):
         return "divider"
+
+    # Exact title match against known consulting-deck section names → also
+    # treat as a divider (even on a regular layout), as long as the body
+    # is reasonable (< 200 chars). Catches "Nuestro enfoque" / "Contexto y
+    # objetivos" / "Equipo de trabajo" / etc. slides that are structurally
+    # separators but didn't use the Section Header layout.
+    if has_title and title_norm in _SECTION_DIVIDER_EXACT_TITLES:
+        body_chars_quick = sum(
+            len((sh.get("text") or "").strip())
+            for sh in slide.get("shapes", [])
+            if not sh.get("is_title")
+        )
+        if body_chars_quick < 200:
+            return "divider"
 
     # Boilerplate slides common in consulting decks — skipped from analysis.
     if has_title and _title_has_any_keyword(title_norm, _CONFIDENTIALITY_TITLE_KEYWORDS):
