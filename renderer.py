@@ -98,6 +98,37 @@ def cache_key_for(pptx_path: str | Path) -> str:
 # Backend 1: PowerPoint COM
 # ---------------------------------------------------------------------------
 
+def _coinit_for_this_thread() -> bool:
+    """Initialize COM apartment for the current thread.
+
+    Required when calling win32com from any thread that isn't the process
+    main thread — Streamlit runs the script in its own worker thread, so
+    without this we get `(-2147221008, 'CoInitialize has not been called')`.
+
+    Returns True if WE initialized COM (caller should CoUninitialize),
+    False if it was already initialized.
+    """
+    try:
+        import pythoncom  # type: ignore
+    except ImportError:
+        return False
+    try:
+        pythoncom.CoInitialize()
+        return True
+    except pythoncom.com_error:
+        # Already initialized in this thread — that's fine, just don't
+        # tear it down on the way out.
+        return False
+
+
+def _couninit_this_thread() -> None:
+    try:
+        import pythoncom  # type: ignore
+        pythoncom.CoUninitialize()
+    except Exception:
+        pass
+
+
 def render_via_powerpoint(
     pptx_path: str | Path,
     *,
@@ -109,6 +140,7 @@ def render_via_powerpoint(
     """Render all slides via PowerPoint COM. Returns {slide_number: png_bytes}.
 
     `progress_cb(done, total)` is called after each slide if provided.
+    Safe to call from a Streamlit worker thread — handles COM init internally.
     """
     pptx_abs = str(Path(pptx_path).resolve())
     if output_dir is None:
@@ -117,44 +149,50 @@ def render_via_powerpoint(
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Try pywin32 first (more common)
-    ppt_app = None
-    try:
-        import win32com.client  # type: ignore
-        ppt_app = win32com.client.Dispatch("PowerPoint.Application")
-    except ImportError:
-        import comtypes.client  # type: ignore
-        ppt_app = comtypes.client.CreateObject("PowerPoint.Application")
+    coinit_done = _coinit_for_this_thread()
 
-    # PowerPoint COM is finicky about Visible — modern Office requires Visible=True
     try:
-        ppt_app.Visible = True
-    except Exception:
-        pass
-
-    pres = ppt_app.Presentations.Open(
-        pptx_abs, WithWindow=False, ReadOnly=True
-    )
-
-    result: dict[int, bytes] = {}
-    try:
-        total = pres.Slides.Count
-        for i in range(1, total + 1):
-            slide = pres.Slides(i)
-            out_path = output_dir / f"slide_{i:03d}.png"
-            # Export takes: FileName, FilterName, ScaleWidth, ScaleHeight
-            slide.Export(str(out_path), "PNG", width, height)
-            if out_path.exists():
-                result[i] = out_path.read_bytes()
-            if progress_cb:
-                progress_cb(i, total)
-    finally:
+        # Try pywin32 first (more common)
+        ppt_app = None
         try:
-            pres.Close()
+            import win32com.client  # type: ignore
+            ppt_app = win32com.client.Dispatch("PowerPoint.Application")
+        except ImportError:
+            import comtypes.client  # type: ignore
+            ppt_app = comtypes.client.CreateObject("PowerPoint.Application")
+
+        # PowerPoint COM is finicky about Visible — modern Office requires Visible=True
+        try:
+            ppt_app.Visible = True
         except Exception:
             pass
-        # Don't Quit() — user may have other presentations open.
-    return result
+
+        pres = ppt_app.Presentations.Open(
+            pptx_abs, WithWindow=False, ReadOnly=True
+        )
+
+        result: dict[int, bytes] = {}
+        try:
+            total = pres.Slides.Count
+            for i in range(1, total + 1):
+                slide = pres.Slides(i)
+                out_path = output_dir / f"slide_{i:03d}.png"
+                # Export takes: FileName, FilterName, ScaleWidth, ScaleHeight
+                slide.Export(str(out_path), "PNG", width, height)
+                if out_path.exists():
+                    result[i] = out_path.read_bytes()
+                if progress_cb:
+                    progress_cb(i, total)
+        finally:
+            try:
+                pres.Close()
+            except Exception:
+                pass
+            # Don't Quit() — user may have other presentations open.
+        return result
+    finally:
+        if coinit_done:
+            _couninit_this_thread()
 
 
 # ---------------------------------------------------------------------------
