@@ -635,27 +635,26 @@ hr {
    Slide navigator — horizontal timeline track
    Dark panel with one colored brick per slide. Section names labeled below.
    ────────────────────────────────────────────── */
-/* The .qa-nav panel uses position: fixed so it survives Streamlit's nested
-   layout (sticky was unreliable inside data-testid="stElementContainer").
-   The .qa-nav-spacer rendered right after reserves the panel's vertical
-   space in the document flow so content below doesn't slide under it. */
+/* The navigator lives in its natural position in the document flow (right
+   after the filters). When the user scrolls past it, sticky pins it at
+   top:3.5rem (just below Streamlit's toolbar) and it stays visible all
+   the way through the slide cards. Sticky is applied on Streamlit's wrapper
+   via :has() because sticky on .qa-nav alone is unreliable when its
+   stMarkdownContainer parent has its own positioning context. */
 .qa-nav {
-  position: fixed;
-  top: 3.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(calc(100vw - 3rem), 1200px);
-  z-index: 100;
+  position: relative;
   background: linear-gradient(180deg, #14040a 0%, #1f0612 100%);
   border-radius: var(--radius);
   padding: 12px 16px 10px;
   box-shadow: 0 10px 28px rgba(20, 4, 10, 0.32);
   border: 1px solid rgba(255,255,255,0.05);
 }
-.qa-nav-spacer { height: 130px; }
-@media (max-width: 720px) {
-  .qa-nav-spacer { height: 160px; }
+[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] > .qa-nav) {
+  position: sticky !important;
+  top: 3.5rem !important;
+  z-index: 100 !important;
 }
+.qa-nav-spacer { display: none; }
 .qa-nav-header {
   display: flex;
   align-items: baseline;
@@ -937,9 +936,9 @@ hr {
   font-weight: 500;
 }
 
-/* Anchor offset on slide cards so the fixed thumbnail navigator doesn't cover
-   them on jump. Navigator is ~130px tall fixed; Streamlit header adds ~56px;
-   total ~190px clearance keeps the slide title visible right under the nav. */
+/* Anchor offset on slide cards so the sticky thumbnail navigator doesn't cover
+   them on jump. Navigator is ~130px tall when sticky; Streamlit header adds
+   ~56px; total ~200px clearance keeps the slide title visible under the nav. */
 .qa-slide-card,
 .qa-section-divider { scroll-margin-top: 200px; }
 
