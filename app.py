@@ -617,8 +617,17 @@ st.markdown("")
 result_sections = detect_sections({"slides": slides})
 
 # Slide navigator (sticky timeline with thumbnails)
-if visible:
-    styles.slide_navigator(visible, sections=result_sections, thumbs=thumbs)
+# Shows ALL slides so the user can always jump to any of them; slides hidden by
+# the current filter set are dimmed but still clickable. Zoom control lives
+# inside the sticky panel (pure HTML radios + CSS, no Streamlit rerun).
+if slides:
+    visible_nums = {s["slide_number"] for s in visible}
+    styles.slide_navigator(
+        slides,
+        sections=result_sections,
+        thumbs=thumbs,
+        visible_slide_numbers=visible_nums,
+    )
 
 if result_sections:
     visible_by_n = {s["slide_number"]: s for s in visible}

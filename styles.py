@@ -636,6 +636,7 @@ hr {
    Dark panel with one colored brick per slide. Section names labeled below.
    ────────────────────────────────────────────── */
 .qa-nav {
+  position: relative;
   background: linear-gradient(180deg, #14040a 0%, #1f0612 100%);
   border-radius: var(--radius);
   padding: 12px 14px 10px;
@@ -703,7 +704,10 @@ hr {
   display: flex;
   align-items: stretch;
   gap: 3px;
-  min-width: 0;
+  flex: 0 0 auto;
+  /* Width = N blocks * block-w + (N-1) * gap. Falls back gracefully if --qa-block-count is unset. */
+  width: calc(var(--qa-block-count, 1) * var(--qa-block-w, 78px) + (var(--qa-block-count, 1) - 1) * 3px);
+  transition: width 220ms ease;
 }
 /* Section separator — thin vertical gap between groups */
 .qa-nav-sep {
@@ -723,8 +727,8 @@ hr {
 }
 
 .qa-nav-block {
-  flex: 0 0 78px;
-  height: 50px;
+  flex: 0 0 var(--qa-block-w, 78px);
+  height: var(--qa-block-h, 50px);
   display: block;
   position: relative;
   overflow: hidden;
@@ -734,8 +738,16 @@ hr {
   cursor: pointer;
   text-decoration: none !important;
   transition: transform 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              box-shadow 160ms ease, filter 100ms ease;
+              box-shadow 160ms ease, filter 100ms ease,
+              flex-basis 220ms ease, height 220ms ease;
   user-select: none;
+}
+/* Slide dimmed because current filter would hide its card */
+.qa-nav-block.filtered-out {
+  opacity: 0.32;
+}
+.qa-nav-block.filtered-out:hover {
+  opacity: 1;
 }
 .qa-nav-block img {
   width: 100%;
@@ -825,6 +837,66 @@ hr {
   min-width: 0;
   padding: 0 4px;
   overflow: hidden;
+  flex: 0 0 auto;
+  width: calc(var(--qa-block-count, 1) * var(--qa-block-w, 78px) + (var(--qa-block-count, 1) - 1) * 3px);
+  transition: width 220ms ease;
+}
+.qa-nav-label-sep {
+  flex: 0 0 10px;
+}
+
+/* ──────── Zoom radios ──────── */
+.qa-nav-zoom {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  display: inline-flex;
+  gap: 2px;
+  background: rgba(255,255,255,0.06);
+  padding: 3px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.08);
+  z-index: 5;
+}
+.qa-zoom-radio { display: none; }
+.qa-nav-zoom label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 7px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.55);
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: background 140ms ease, color 140ms ease;
+  user-select: none;
+}
+.qa-nav-zoom label:hover { color: rgba(255,255,255,0.85); }
+.qa-zoom-s:checked  ~ label[for="qa-zoom-s"],
+.qa-zoom-m:checked  ~ label[for="qa-zoom-m"],
+.qa-zoom-l:checked  ~ label[for="qa-zoom-l"],
+.qa-zoom-xl:checked ~ label[for="qa-zoom-xl"] {
+  background: var(--accent);
+  color: white;
+}
+
+/* Block-size variable controlled by which zoom radio is checked. */
+.qa-nav { --qa-block-w: 78px; --qa-block-h: 50px; }
+.qa-nav:has(.qa-zoom-s:checked)  { --qa-block-w: 50px;  --qa-block-h: 32px; }
+.qa-nav:has(.qa-zoom-m:checked)  { --qa-block-w: 78px;  --qa-block-h: 50px; }
+.qa-nav:has(.qa-zoom-l:checked)  { --qa-block-w: 120px; --qa-block-h: 76px; }
+.qa-nav:has(.qa-zoom-xl:checked) { --qa-block-w: 170px; --qa-block-h: 108px; }
+
+/* Make room on the header so the zoom widget doesn't overlap the legend */
+.qa-nav-header { padding-right: 150px; }
+@media (max-width: 720px) {
+  .qa-nav-header { padding-right: 0; }
+  .qa-nav-zoom { position: static; margin-bottom: 6px; }
 }
 .qa-nav-label-name {
   font-size: 0.66rem;
@@ -879,9 +951,18 @@ hr {
   font-weight: 500;
 }
 
-/* Anchor offset on slide cards so the sticky thumb navigator doesn't cover them */
-.qa-slide-card { scroll-margin-top: 170px; }
-.qa-section-divider { scroll-margin-top: 170px; }
+/* Anchor offset on slide cards so the sticky thumb navigator doesn't cover them.
+   Scales with the current zoom level via :has() on body. */
+.qa-slide-card,
+.qa-section-divider { scroll-margin-top: 180px; }
+body:has(.qa-zoom-s:checked)  .qa-slide-card,
+body:has(.qa-zoom-s:checked)  .qa-section-divider { scroll-margin-top: 130px; }
+body:has(.qa-zoom-m:checked)  .qa-slide-card,
+body:has(.qa-zoom-m:checked)  .qa-section-divider { scroll-margin-top: 170px; }
+body:has(.qa-zoom-l:checked)  .qa-slide-card,
+body:has(.qa-zoom-l:checked)  .qa-section-divider { scroll-margin-top: 215px; }
+body:has(.qa-zoom-xl:checked) .qa-slide-card,
+body:has(.qa-zoom-xl:checked) .qa-section-divider { scroll-margin-top: 270px; }
 
 /* ──────────────────────────────────────────────
    Deck overview panel — promoted from expander
@@ -1503,25 +1584,29 @@ def slide_navigator(
     slides: list[dict],
     sections: list[dict] | None = None,
     thumbs: dict[int, bytes] | None = None,
+    visible_slide_numbers: set[int] | None = None,
 ) -> None:
     """Sticky timeline navigator: one thumbnail per slide with severity border.
 
+    Includes a built-in zoom control (S/M/L/XL HTML radios + CSS :has() rules)
+    that resizes blocks instantly without re-rendering the page. Default = M.
+
+    `visible_slide_numbers`, when provided, marks blocks for slides NOT in the
+    set as `filtered-out` (dimmed) — so users can still see/click them but know
+    the corresponding card is hidden by current filters.
+
     When `sections` is provided, thumbnails are grouped contiguously with a thin
     vertical separator between groups, and a labels row underneath aligns each
-    section name beneath its group (widths match exactly).
-
-    Block geometry (must match the CSS in this file):
-      - block width  = 78px
-      - block gap    = 3px (within a section group)
-      - section sep  = 10px (between groups)
+    section name beneath its group. Group widths flex proportionally to the
+    block count so labels stay aligned at any zoom level.
     """
     import base64 as _base64
 
-    BLOCK_W = 78
     BLOCK_GAP = 3
     SECTION_SEP = 10
 
     thumbs = thumbs or {}
+    visible_set = visible_slide_numbers  # None = all visible
 
     def _block(slide: dict) -> str:
         n = slide["slide_number"]
@@ -1534,19 +1619,25 @@ def slide_navigator(
             tooltip = f"Slide {n} · {sev.upper()}"
         if title:
             tooltip += f" — {title[:60]}"
-        skipped_cls = " skipped" if slide.get("_skipped") else ""
+        classes = [f"sev-{sev}"]
+        if slide.get("_skipped"):
+            classes.append("skipped")
+        if visible_set is not None and n not in visible_set:
+            classes.append("filtered-out")
+            tooltip += " · oculto por filtros"
 
         thumb_bytes = thumbs.get(n)
         if thumb_bytes:
             b64 = _base64.b64encode(thumb_bytes).decode("ascii")
             inner = f'<img src="data:image/png;base64,{b64}" alt="Slide {n}" />'
         else:
+            no_thumb_cls = f"sev-{sev}" + (" skipped" if slide.get("_skipped") else "")
             inner = (
-                f'<div class="qa-nav-block-no-thumb sev-{sev}{skipped_cls}">{n}</div>'
+                f'<div class="qa-nav-block-no-thumb {no_thumb_cls}">{n}</div>'
             )
 
         return (
-            f'<a class="qa-nav-block sev-{sev}{skipped_cls}" '
+            f'<a class="qa-nav-block {" ".join(classes)}" '
             f'href="#qa-slide-{n}" title="{_escape_html(tooltip)}">'
             f'{inner}'
             f'<span class="qa-nav-block-num">{n}</span>'
@@ -1584,10 +1675,11 @@ def slide_navigator(
             if not nums:
                 continue
             count = len(nums)
-            group_width = count * BLOCK_W + max(0, count - 1) * BLOCK_GAP
             blocks_html = "".join(_block(slide_by_n[n]) for n in nums)
+            # CSS custom prop carries the block count so the section group +
+            # label below can compute matching pixel widths at any zoom level.
             groups.append(
-                f'<div class="qa-nav-section-group" style="flex: 0 0 {group_width}px;">'
+                f'<div class="qa-nav-section-group" style="--qa-block-count: {count};">'
                 f'{blocks_html}'
                 '</div>'
             )
@@ -1597,14 +1689,14 @@ def slide_navigator(
                 else str(sec["start"])
             )
             labels.append(
-                f'<div class="qa-nav-label" style="flex: 0 0 {group_width}px;">'
+                f'<div class="qa-nav-label" style="--qa-block-count: {count};">'
                 f'<span class="qa-nav-label-name">{_escape_html(sec["name"])}</span>'
                 f'<span class="qa-nav-label-range">{_escape_html(range_text)}</span>'
                 '</div>'
             )
 
         sep_html = '<div class="qa-nav-sep"></div>'
-        label_sep_html = f'<div class="qa-nav-label-sep" style="flex: 0 0 {SECTION_SEP}px;"></div>'
+        label_sep_html = '<div class="qa-nav-label-sep"></div>'
         track_html = sep_html.join(groups)
         labels_html = label_sep_html.join(labels)
         body = (
@@ -1619,7 +1711,22 @@ def slide_navigator(
             '</div>'
         )
 
-    html = f'<div class="qa-nav">{header_html}{body}</div>'
+    # Zoom radios (S/M/L/XL) — CSS :has() rules below update --qa-block-w
+    # without a Streamlit rerun. Default = M (78px).
+    zoom_html = (
+        '<div class="qa-nav-zoom">'
+        '<input type="radio" name="qa-nav-zoom" id="qa-zoom-s" class="qa-zoom-radio qa-zoom-s">'
+        '<input type="radio" name="qa-nav-zoom" id="qa-zoom-m" class="qa-zoom-radio qa-zoom-m" checked>'
+        '<input type="radio" name="qa-nav-zoom" id="qa-zoom-l" class="qa-zoom-radio qa-zoom-l">'
+        '<input type="radio" name="qa-nav-zoom" id="qa-zoom-xl" class="qa-zoom-radio qa-zoom-xl">'
+        '<label for="qa-zoom-s" title="Pequeño">S</label>'
+        '<label for="qa-zoom-m" title="Mediano (default)">M</label>'
+        '<label for="qa-zoom-l" title="Grande">L</label>'
+        '<label for="qa-zoom-xl" title="Extra grande">XL</label>'
+        '</div>'
+    )
+
+    html = f'<div class="qa-nav">{zoom_html}{header_html}{body}</div>'
     st.markdown(html, unsafe_allow_html=True)
 
 
