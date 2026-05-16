@@ -715,27 +715,46 @@ else:
 
 
 # ---------------------------------------------------------------------------
-# Visual analysis (only if enabled — kept as expander, it's a technical drill-down)
+# Visual analysis summary — shows ONLY non-redundant info: count + a quick
+# index of slides flagged. Detailed notes / suggestions live inline in each
+# slide card above; repeating them here adds noise.
 # ---------------------------------------------------------------------------
 
 if overview.get("visual_analysis_enabled"):
     visual_slides_data = [s for s in slides if s.get("visual")]
     if visual_slides_data:
-        with st.expander(f"Análisis visual · {len(visual_slides_data)} slides", expanded=False):
-            for slide in visual_slides_data:
-                n = slide["slide_number"]
-                v = slide["visual"]
-                vq = v.get("visual_quality", {})
-                st.markdown(
-                    f"**Slide {n}** · "
-                    + (styles.pill("OK", "ok") if vq.get("ok") else styles.pill("Revisar", "crit")),
-                    unsafe_allow_html=True,
-                )
-                st.caption(vq.get("notes", "—"))
-                if v.get("design_issues"):
-                    for issue in v["design_issues"]:
-                        st.markdown(f"- {issue}")
-                st.markdown("---")
+        flagged = [
+            s for s in visual_slides_data
+            if not (s["visual"].get("visual_quality") or {}).get("ok", True)
+        ]
+        ok_count = len(visual_slides_data) - len(flagged)
+        if flagged:
+            links = " · ".join(
+                f'<a href="#qa-slide-{s["slide_number"]}" '
+                'style="color: var(--accent); text-decoration: none; font-weight: 700;">'
+                f'#{s["slide_number"]}</a>'
+                for s in flagged
+            )
+            summary = (
+                f'<strong>{len(flagged)}</strong> slide(s) con issues visuales · '
+                f'<strong>{ok_count}</strong> OK · Ver detalle inline en cada card: {links}'
+            )
+        else:
+            summary = (
+                f'<strong>{len(visual_slides_data)}</strong> slide(s) con imágenes '
+                'analizadas · todas OK.'
+            )
+        st.markdown(
+            '<div style="margin: 0.4rem 0 1rem 0; padding: 12px 16px; '
+            'background: var(--surface-2); border: 1px solid var(--border-soft); '
+            'border-radius: 10px; font-size: 0.88rem; color: var(--text);">'
+            '<span style="font-size: 0.66rem; text-transform: uppercase; '
+            'letter-spacing: 0.10em; font-weight: 700; color: var(--text-muted); '
+            'display: block; margin-bottom: 6px;">Análisis visual · resumen</span>'
+            f'{summary}'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
 # Token usage
 if "usage" in result:
