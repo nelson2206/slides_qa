@@ -1,0 +1,32 @@
+# Secrets — never commit any of these
+.env
+.env.local
+api_key.txt
+.anthropic_key
+.openai_key
+openai_key.txt
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Build output
+build/
+dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Local thumbnails / cache
+ppt_thumbs_*/
+ppt_thumbs_lo_*/

@@ -1,0 +1,18 @@
+[theme]
+# Recreo-inspired palette — cream surface + burgundy panel + pink accent
+primaryColor = "#e94e77"
+backgroundColor = "#f4f1ec"
+secondaryBackgroundColor = "#faf6f1"
+textColor = "#2d0e17"
+font = "sans serif"
+base = "light"
+
+[server]
+headless = false
+runOnSave = true
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
