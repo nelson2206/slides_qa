@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from extractor import extract_deck
-from qa import run_local_qa
+from qa import SEVERITY_ORDER, run_local_qa, severity_for
 
 
 def _drive(gen):
@@ -121,3 +121,40 @@ def test_local_qa_flags_footer_coverage_gap(bad_deck_path):
     # Bad fixture: only 2 of 3+ content slides have footer
     assert tc["coverage_pct"] < 1.0
     assert tc["ok"] is False
+
+
+# -------- Severity --------
+
+def test_severity_for_thresholds():
+    assert severity_for(0) == "critical"
+    assert severity_for(4) == "critical"
+    assert severity_for(5) == "warning"
+    assert severity_for(7) == "warning"
+    assert severity_for(8) == "nit"
+    assert severity_for(9) == "nit"
+    assert severity_for(10) == "ok"
+    # None (skipped) → defaults to nit
+    assert severity_for(None) == "nit"
+
+
+def test_severity_order_constant():
+    assert SEVERITY_ORDER == ("critical", "warning", "nit", "ok")
+
+
+def test_local_qa_emits_severity_per_slide(bad_deck_path):
+    deck = extract_deck(bad_deck_path)
+    result, _ = _drive(run_local_qa("deck_problemas.pptx", deck))
+    for slide in result["slides"]:
+        assert "severity" in slide
+        assert slide["severity"] in SEVERITY_ORDER
+        # Severity should be consistent with score
+        assert slide["severity"] == severity_for(slide["score"])
+
+
+def test_local_qa_severity_distribution_bad_deck(bad_deck_path):
+    """Bad fixture should yield at least one critical/warning slide."""
+    deck = extract_deck(bad_deck_path)
+    result, _ = _drive(run_local_qa("deck_problemas.pptx", deck))
+    severities = [s["severity"] for s in result["slides"]]
+    # At least one slide is bad enough to be critical or warning
+    assert any(s in ("critical", "warning") for s in severities)

@@ -34,6 +34,43 @@ DEFAULT_SKIP_ROLES = frozenset({"divider", "minimal"})
 
 
 # ---------------------------------------------------------------------------
+# Severity — map numeric score (0-10) to 4 severity levels.
+# ---------------------------------------------------------------------------
+#
+#   critical (0-4):  multiple structural issues — fix first
+#   warning  (5-7):  one clear issue — should fix
+#   nit      (8-9):  minor polish — optional
+#   ok       (10):   no issues
+#
+SEVERITY_LABELS = {
+    "critical": "Critical",
+    "warning":  "Warning",
+    "nit":      "Nit",
+    "ok":       "OK",
+}
+SEVERITY_EMOJI = {
+    "critical": "🔴",
+    "warning":  "🟡",
+    "nit":      "🔵",
+    "ok":       "🟢",
+}
+SEVERITY_ORDER = ("critical", "warning", "nit", "ok")
+
+
+def severity_for(score: int | None) -> str:
+    """Map a 0-10 numeric score to a severity level string."""
+    if score is None:
+        return "nit"          # unknown / skipped → treat as nit
+    if score <= 4:
+        return "critical"
+    if score <= 7:
+        return "warning"
+    if score <= 9:
+        return "nit"
+    return "ok"
+
+
+# ---------------------------------------------------------------------------
 # Shared helper — build a per-slide finding from deterministic data only.
 # ---------------------------------------------------------------------------
 
@@ -83,6 +120,7 @@ def _build_local_finding(
         "slide_number": n,
         "role": role,
         "score": score,
+        "severity": severity_for(score),
         "summary": (
             ("Análisis local (sin API)." + skip_note + " " + " ".join(issues))
             if issues
@@ -222,6 +260,7 @@ def _merge_finding_with_deterministic(
         "slide_number": finding["slide_number"],
         "role": det_slide["role"],
         "score": finding["score"],
+        "severity": severity_for(finding["score"]),
         "summary": finding["summary"],
         "_skipped": finding.get("_skipped", False),
         "action_title": finding["action_title"],

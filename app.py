@@ -13,7 +13,15 @@ from extractor import extract_deck, extract_images
 from keyloader import load_all_keys, mask
 from pricing import compare_providers, estimate_cost
 from providers import PROVIDERS, provider_pricing_table
-from qa import DEFAULT_SKIP_ROLES, run_full_qa, run_local_qa
+from qa import (
+    DEFAULT_SKIP_ROLES,
+    SEVERITY_EMOJI,
+    SEVERITY_LABELS,
+    SEVERITY_ORDER,
+    run_full_qa,
+    run_local_qa,
+    severity_for,
+)
 from renderer import (
     cache_key_for,
     is_libreoffice_available,
@@ -488,8 +496,11 @@ def _render_live_table():
         title_disp = (title[:60] + "…") if len(title) > 60 else title
         is_at = f.get("action_title", {}).get("is_action_title")
         sw = f.get("so_what", {}).get("present")
+        sev = f.get("severity") or severity_for(f.get("score"))
         rows.append({
+            "": SEVERITY_EMOJI.get(sev, "·"),
             "Slide": entry["slide_number"],
+            "Sev.": SEVERITY_LABELS.get(sev, "—"),
             "Score": f"{f.get('score', '?')}/10",
             "Action title": "✓" if is_at else "✗" if is_at is False else "—",
             "So-what": "✓" if sw else "✗" if sw is False else "—",
@@ -607,7 +618,6 @@ def _footer_pill(footer: dict) -> tuple[str, str]:
 overview = result["deck_overview"]
 slides = result["slides"]
 total = len(slides)
-flagged = [s for s in slides if s["score"] is not None and s["score"] < 7]
 avg_score = sum(s["score"] for s in slides if s["score"] is not None) / max(
     1, sum(1 for s in slides if s["score"] is not None)
 )
@@ -615,6 +625,12 @@ role_counts: dict[str, int] = {}
 for s in slides:
     r = s.get("role", "unknown")
     role_counts[r] = role_counts.get(r, 0) + 1
+
+# Severity counts
+sev_counts: dict[str, int] = {s: 0 for s in SEVERITY_ORDER}
+for s in slides:
+    sev = s.get("severity") or severity_for(s.get("score"))
+    sev_counts[sev] = sev_counts.get(sev, 0) + 1
 
 
 # ---------------------------------------------------------------------------
@@ -626,20 +642,40 @@ provider_label = PROVIDER_LABELS.get(result.get("provider", ""), result.get("pro
 st.markdown(f"## {file_name}")
 st.caption(f"Provider · {provider_label}  ·  Modo · {result['mode']}")
 
+# Severity-first metrics row
 m1, m2, m3, m4, m5 = st.columns(5)
 m1.metric("Slides", total)
 m2.metric(
-    "Flagged <7",
-    len(flagged),
-    delta=f"-{len(flagged)}" if flagged else "0",
+    f"{SEVERITY_EMOJI['critical']} Critical",
+    sev_counts["critical"],
+    delta=f"-{sev_counts['critical']}" if sev_counts["critical"] else "0",
     delta_color="inverse",
+    help="Score 0-4 · arreglar primero",
 )
-m3.metric("Score promedio", f"{avg_score:.1f}/10")
-m4.metric("Skipped", len(overview.get("skipped_slides", [])))
+m3.metric(
+    f"{SEVERITY_EMOJI['warning']} Warning",
+    sev_counts["warning"],
+    delta=f"-{sev_counts['warning']}" if sev_counts["warning"] else "0",
+    delta_color="inverse",
+    help="Score 5-7 · should fix",
+)
+m4.metric(
+    f"{SEVERITY_EMOJI['nit']} Nit",
+    sev_counts["nit"],
+    help="Score 8-9 · polish opcional",
+)
 if "actual_cost" in result:
     m5.metric("Costo real", f"${result['actual_cost']['total_usd']:.3f}")
 else:
     m5.metric("Costo", "$0 · local")
+
+# Compact secondary stats
+secondary = []
+secondary.append(f"Score promedio · **{avg_score:.1f}**/10")
+secondary.append(f"{SEVERITY_EMOJI['ok']} OK · {sev_counts['ok']}")
+if overview.get("skipped_slides"):
+    secondary.append(f"Skipped · {len(overview['skipped_slides'])}")
+st.caption("  ·  ".join(secondary))
 
 
 # ---------------------------------------------------------------------------
@@ -813,32 +849,45 @@ with tab_overview:
 
 # -------- Per slide --------
 with tab_slides:
-    f1, f2, f3, f4 = st.columns(4)
-    only_flagged = f1.checkbox("Solo flagged (<7)", value=False)
-    hide_skipped = f2.checkbox("Ocultar skipped", value=False)
-    role_filter = f3.multiselect("Filtrar role", options=sorted(role_counts.keys()), default=[])
-    expand_all = f4.checkbox("Expandir todos", value=False)
+    # Severity filter — multi-select with counts. Defaults to showing critical+warning only.
+    styles.section_label("Filtrar por severidad")
+    sev_cols = st.columns(4)
+    show_sev: dict[str, bool] = {}
+    sev_defaults = {"critical": True, "warning": True, "nit": False, "ok": False}
+    for i, sev in enumerate(SEVERITY_ORDER):
+        with sev_cols[i]:
+            label = f"{SEVERITY_EMOJI[sev]} {SEVERITY_LABELS[sev]} ({sev_counts[sev]})"
+            show_sev[sev] = st.checkbox(label, value=sev_defaults[sev], key=f"sev_{sev}")
+
+    st.markdown("")
+    f1, f2, f3 = st.columns(3)
+    hide_skipped = f1.checkbox("Ocultar skipped", value=False)
+    role_filter = f2.multiselect("Filtrar role", options=sorted(role_counts.keys()), default=[])
+    expand_all = f3.checkbox("Expandir todos", value=False)
 
     visible = [
         s for s in slides
-        if (not only_flagged or (s["score"] is not None and s["score"] < 7))
+        if show_sev.get(s.get("severity") or severity_for(s.get("score")), False)
         and (not hide_skipped or not s.get("_skipped"))
         and (not role_filter or s.get("role") in role_filter)
     ]
-    st.caption(f"{len(visible)} de {total} slides")
+    st.caption(f"Mostrando {len(visible)} de {total} slides")
     st.markdown("")
 
     for slide in visible:
         n = slide["slide_number"]
         score = slide["score"]
+        sev = slide.get("severity") or severity_for(score)
         role = slide.get("role", "?")
         skipped_tag = " · skipped" if slide.get("_skipped") else ""
         title = slide["action_title"].get("current_title") or "(sin título)"
         title_disp = (title[:70] + "…") if len(title) > 70 else title
 
         score_text = f"{score}/10" if score is not None else "—"
-        header = f"Slide {n}  ·  {score_text}  ·  {role}{skipped_tag}  ·  {title_disp}"
-        expanded = expand_all or (score is not None and score < 7)
+        sev_label = f"{SEVERITY_EMOJI[sev]} {SEVERITY_LABELS[sev].upper()}"
+        header = f"{sev_label}  ·  Slide {n}  ·  {score_text}  ·  {role}{skipped_tag}  ·  {title_disp}"
+        # Default expanded: critical only. User can toggle "Expandir todos".
+        expanded = expand_all or sev == "critical"
 
         with st.expander(header, expanded=expanded):
             # Thumbnail (if rendered) — show above the summary
@@ -1095,10 +1144,19 @@ with tab_export:
             for issue in overview["cross_slide_issues"]:
                 s_str = ", ".join(str(s) for s in issue["slide_numbers"])
                 lines.append(f"- Slides {s_str}: {issue['issue']}")
+        lines.append("\n## Resumen de severidad\n")
+        lines.append(
+            f"- 🔴 Critical · {sev_counts['critical']}  ·  "
+            f"🟡 Warning · {sev_counts['warning']}  ·  "
+            f"🔵 Nit · {sev_counts['nit']}  ·  "
+            f"🟢 OK · {sev_counts['ok']}"
+        )
         lines.append("\n## Slides\n")
         for slide in slides:
             score_str = f"{slide['score']}/10" if slide["score"] is not None else "—"
-            lines.append(f"### Slide {slide['slide_number']} · {score_str} ({slide.get('role','?')})")
+            sev = slide.get("severity") or severity_for(slide.get("score"))
+            sev_label = f"{SEVERITY_EMOJI.get(sev,'')} {SEVERITY_LABELS.get(sev,'')}"
+            lines.append(f"### {sev_label} · Slide {slide['slide_number']} · {score_str} ({slide.get('role','?')})")
             lines.append(f"_{slide['summary']}_\n")
             at = slide["action_title"]
             lines.append(f"**Título:** `{at.get('current_title','')}`")

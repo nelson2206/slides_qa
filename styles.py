@@ -428,7 +428,14 @@ hr {
 .qa-pill.warn  { background: var(--status-warn-bg); color: var(--status-warn); border-color: rgba(180,83,9,0.22); }
 .qa-pill.crit  { background: var(--status-crit-bg); color: var(--status-crit); border-color: rgba(185,28,28,0.22); }
 .qa-pill.info  { background: var(--status-info-bg); color: var(--status-info); border-color: rgba(109,40,217,0.18); }
+.qa-pill.nit   { background: #eef6fc;               color: #075985;            border-color: rgba(7,89,133,0.18); }
 .qa-pill.muted { background: rgba(61,13,26,0.04);   color: var(--text-muted);  border-color: var(--border-soft); }
+
+/* Severity-specific pills (used for slide severity bands) */
+.qa-pill.sev-critical { background: var(--status-crit-bg); color: var(--status-crit); border-color: rgba(185,28,28,0.22); }
+.qa-pill.sev-warning  { background: var(--status-warn-bg); color: var(--status-warn); border-color: rgba(180,83,9,0.22); }
+.qa-pill.sev-nit      { background: #eef6fc;               color: #075985;            border-color: rgba(7,89,133,0.18); }
+.qa-pill.sev-ok       { background: var(--status-ok-bg);   color: var(--status-ok);   border-color: rgba(4,120,87,0.18); }
 
 .qa-cost-panel {
   background: linear-gradient(170deg, #3d0d1a 0%, #5c1428 60%, #3d0d1a 100%);
