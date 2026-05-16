@@ -1,0 +1,40 @@
+<svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3d0d1a"/>
+      <stop offset="100%" stop-color="#14040a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="78%" cy="22%" r="60%">
+      <stop offset="0%" stop-color="#e94e77" stop-opacity="0.55"/>
+      <stop offset="60%" stop-color="#e94e77" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <rect width="256" height="256" rx="48" fill="url(#glow)"/>
+
+  <!-- Slide outline -->
+  <rect x="56" y="64" width="144" height="104" rx="10"
+        fill="none" stroke="white" stroke-width="3.5" opacity="0.92"/>
+
+  <!-- Action title bar (pink) -->
+  <rect x="74" y="84" width="84" height="7" rx="3.5" fill="#e94e77"/>
+
+  <!-- Body lines -->
+  <rect x="74" y="104" width="108" height="3.5" rx="1.75" fill="white" opacity="0.72"/>
+  <rect x="74" y="116" width="96"  height="3.5" rx="1.75" fill="white" opacity="0.58"/>
+  <rect x="74" y="128" width="80"  height="3.5" rx="1.75" fill="white" opacity="0.48"/>
+
+  <!-- Severity dot row -->
+  <circle cx="80"  cy="150" r="4" fill="#2dba8a"/>
+  <circle cx="94"  cy="150" r="4" fill="#f0a429"/>
+  <circle cx="108" cy="150" r="4" fill="#e94e77"/>
+  <circle cx="122" cy="150" r="4" fill="#4b8ef0"/>
+
+  <!-- QA badge -->
+  <circle cx="196" cy="200" r="34" fill="#e94e77"/>
+  <circle cx="196" cy="200" r="34" fill="none" stroke="white" stroke-width="2" opacity="0.18"/>
+  <text x="196" y="211"
+        font-family="Inter, -apple-system, system-ui, sans-serif"
+        font-size="26" font-weight="900" fill="white" text-anchor="middle"
+        letter-spacing="-0.5">QA</text>
+</svg>

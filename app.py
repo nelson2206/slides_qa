@@ -30,13 +30,37 @@ from sections import detect_sections
 # Page setup
 # ---------------------------------------------------------------------------
 
+_LOGO_PATH = Path(__file__).parent / "assets" / "logo.svg"
 st.set_page_config(
-    page_title="PPT QA Agent",
-    page_icon=":bar_chart:",
+    page_title="PPT QA Agent · Auditoría MBB de presentaciones",
+    page_icon=str(_LOGO_PATH) if _LOGO_PATH.exists() else ":bar_chart:",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 styles.inject()
+
+# ---------------------------------------------------------------------------
+# Open Graph / social-share meta tags
+# Streamlit injects these into <body>, not <head>. WhatsApp's scraper only
+# reads <head>, so the OG preview there will fall back to whatever Streamlit
+# Cloud provides by default. Twitter / Slack / Discord / Telegram are more
+# lenient and DO pick up body-level meta. The static og-image.png lives at
+# /app/static/og-image.png (Streamlit Cloud auto-serves the static/ folder).
+# ---------------------------------------------------------------------------
+_OG_IMAGE_URL = "https://slides-qa.streamlit.app/app/static/og-image.png"
+st.markdown(
+    f'''
+<meta property="og:title" content="PPT QA Agent — Auditoría MBB de presentaciones">
+<meta property="og:description" content="Subí tu .pptx y obtené un checklist de calidad por slide: action titles, so-what, storyline, pie de página, análisis visual.">
+<meta property="og:image" content="{_OG_IMAGE_URL}">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PPT QA Agent — Auditoría MBB de presentaciones">
+<meta name="twitter:description" content="Checklist de calidad por slide con criterio de senior MBB.">
+<meta name="twitter:image" content="{_OG_IMAGE_URL}">
+''',
+    unsafe_allow_html=True,
+)
 
 
 # ---------------------------------------------------------------------------
