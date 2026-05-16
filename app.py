@@ -419,7 +419,7 @@ if run_button:
         rows = []
         for entry in completed_slides:
             f = entry["finding"]
-            title = f.get("action_title", {}).get("current_title", "")
+            title = (f.get("action_title") or {}).get("current_title") or ""
             title_disp = (title[:60] + "…") if len(title) > 60 else title
             sev = f.get("severity") or severity_for(f.get("score"))
             rows.append({
