@@ -77,6 +77,17 @@ CSS = """
   background-attachment: fixed;
 }
 
+/* Tighten Streamlit's default top padding so the hero starts close to the top. */
+[data-testid="stMainBlockContainer"],
+.stMainBlockContainer {
+  padding-top: 1.5rem !important;
+  padding-bottom: 2rem !important;
+}
+@media (max-width: 720px) {
+  [data-testid="stMainBlockContainer"],
+  .stMainBlockContainer { padding-top: 1rem !important; }
+}
+
 /* ──────────────────────────────────────────────
    Typography — target body/heading containers
    only. NEVER use `*` here, it breaks icons.
@@ -1146,9 +1157,9 @@ hr {
    ────────────────────────────────────────────── */
 .qa-hero {
   position: relative;
-  border-radius: 24px;
-  padding: 56px 48px 60px 48px;
-  margin: 6px 0 28px 0;
+  border-radius: 20px;
+  padding: 26px 36px 28px 36px;
+  margin: 0 0 14px 0;
   background:
     /* warm pink glow top-right */
     radial-gradient(ellipse 60% 70% at 78% 22%, rgba(233,78,119,0.55) 0%, transparent 55%),
@@ -1162,11 +1173,10 @@ hr {
     linear-gradient(135deg, #14040a 0%, #2e0a16 45%, #3d0d1a 100%);
   color: white;
   overflow: hidden;
-  min-height: 280px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  box-shadow: 0 20px 60px rgba(61,13,26,0.28), 0 4px 12px rgba(61,13,26,0.12);
+  box-shadow: 0 14px 40px rgba(61,13,26,0.22), 0 3px 8px rgba(61,13,26,0.10);
 }
 
 /* Dot pattern overlay — fades in from edges via mask */
@@ -1206,12 +1216,12 @@ hr {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--accent);
-  margin-bottom: 18px;
+  margin-bottom: 8px;
   text-shadow: 0 0 24px rgba(233,78,119,0.65);
 }
 .qa-hero-eyebrow::before {
@@ -1225,18 +1235,18 @@ hr {
 
 .qa-hero h1 {
   color: white !important;
-  font-size: 2.8rem !important;
+  font-size: 2.1rem !important;
   font-weight: 800 !important;
-  letter-spacing: -0.026em !important;
-  line-height: 1.05 !important;
-  margin: 0 0 18px 0 !important;
-  text-shadow: 0 2px 30px rgba(0,0,0,0.4);
+  letter-spacing: -0.024em !important;
+  line-height: 1.08 !important;
+  margin: 0 0 10px 0 !important;
+  text-shadow: 0 2px 24px rgba(0,0,0,0.4);
 }
 
 .qa-hero p {
   color: rgba(255,255,255,0.78) !important;
-  font-size: 1rem;
-  line-height: 1.55;
+  font-size: 0.92rem;
+  line-height: 1.5;
   margin: 0;
   max-width: 60ch;
   font-weight: 400;
@@ -1255,10 +1265,10 @@ hr {
 .qa-hero-chips {
   position: relative;
   z-index: 2;
-  margin-top: 22px;
+  margin-top: 12px;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 .qa-hero-chip {
   display: inline-flex;
@@ -1289,8 +1299,8 @@ hr {
 
 /* Responsive: shrink on narrow screens */
 @media (max-width: 720px) {
-  .qa-hero { padding: 36px 28px; min-height: 220px; }
-  .qa-hero h1 { font-size: 2rem !important; }
+  .qa-hero { padding: 20px 22px; }
+  .qa-hero h1 { font-size: 1.6rem !important; }
 }
 
 /* ──────────────────────────────────────────────
