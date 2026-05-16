@@ -646,12 +646,39 @@ hr {
    Slide navigator — horizontal timeline track
    Dark panel with one colored brick per slide. Section names labeled below.
    ────────────────────────────────────────────── */
-/* The navigator lives in its natural position in the document flow (right
-   after the filters). When the user scrolls past it, sticky pins it at
-   top:3.5rem (just below Streamlit's toolbar) and it stays visible all
-   the way through the slide cards. Sticky is applied on Streamlit's wrapper
-   via :has() because sticky on .qa-nav alone is unreliable when its
-   stMarkdownContainer parent has its own positioning context. */
+/* Sticky setup. We need THREE things to work for sticky to be reliable
+   inside Streamlit's layout:
+   1) No ancestor with `overflow: hidden|auto|scroll` between the sticky
+      element and the scroll context. Streamlit's stMain / stMainBlockContainer
+      / stVerticalBlock sometimes clip — we force overflow: visible on them.
+   2) Sticky on a sensible target. We apply it on both .qa-nav and its
+      Streamlit wrapper (via permissive :has()) to maximise compatibility.
+   3) High z-index so the panel stacks above other content. */
+
+/* (1) Ensure no clipping on Streamlit's content-wrapping containers */
+section[data-testid="stMain"],
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"],
+.stMainBlockContainer,
+[data-testid="stVerticalBlock"],
+.stVerticalBlock {
+  overflow: visible !important;
+}
+
+/* (2) Sticky on the Streamlit wrapper. Permissive descendant selector so it
+   matches even if Streamlit adds intermediate wrappers around our HTML. */
+[data-testid="stElementContainer"]:has(.qa-nav),
+.stElementContainer:has(.qa-nav) {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 200 !important;
+  background: var(--surface);
+  padding-top: 6px;
+  padding-bottom: 6px;
+  margin-top: -6px;
+}
+
+/* The navigator card itself — visual only, the wrapper handles stickiness. */
 .qa-nav {
   position: relative;
   background: linear-gradient(180deg, #14040a 0%, #1f0612 100%);
@@ -660,11 +687,7 @@ hr {
   box-shadow: 0 10px 28px rgba(20, 4, 10, 0.32);
   border: 1px solid rgba(255,255,255,0.05);
 }
-[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] > .qa-nav) {
-  position: sticky !important;
-  top: 3.5rem !important;
-  z-index: 100 !important;
-}
+
 .qa-nav-spacer { display: none; }
 .qa-nav-header {
   display: flex;
@@ -1157,9 +1180,13 @@ hr {
    ────────────────────────────────────────────── */
 .qa-hero {
   position: relative;
-  border-radius: 20px;
-  padding: 26px 36px 28px 36px;
-  margin: 0 0 14px 0;
+  border-radius: 24px;
+  padding: 64px 56px 68px 56px;
+  margin: 0 0 22px 0;
+  /* Hero takes most of the initial viewport — first impression should be a
+     full, atmospheric statement. Clamped so it never gets absurd on
+     ultrawide screens but always feels generous. */
+  min-height: clamp(360px, 62vh, 560px);
   background:
     /* warm pink glow top-right */
     radial-gradient(ellipse 60% 70% at 78% 22%, rgba(233,78,119,0.55) 0%, transparent 55%),
@@ -1176,7 +1203,7 @@ hr {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  box-shadow: 0 14px 40px rgba(61,13,26,0.22), 0 3px 8px rgba(61,13,26,0.10);
+  box-shadow: 0 22px 64px rgba(61,13,26,0.28), 0 4px 14px rgba(61,13,26,0.14);
 }
 
 /* Dot pattern overlay — fades in from edges via mask */
@@ -1216,12 +1243,12 @@ hr {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--accent);
-  margin-bottom: 8px;
+  margin-bottom: 20px;
   text-shadow: 0 0 24px rgba(233,78,119,0.65);
 }
 .qa-hero-eyebrow::before {
@@ -1235,20 +1262,20 @@ hr {
 
 .qa-hero h1 {
   color: white !important;
-  font-size: 2.1rem !important;
+  font-size: clamp(2.4rem, 5vw, 3.4rem) !important;
   font-weight: 800 !important;
-  letter-spacing: -0.024em !important;
-  line-height: 1.08 !important;
-  margin: 0 0 10px 0 !important;
-  text-shadow: 0 2px 24px rgba(0,0,0,0.4);
+  letter-spacing: -0.028em !important;
+  line-height: 1.04 !important;
+  margin: 0 0 20px 0 !important;
+  text-shadow: 0 2px 30px rgba(0,0,0,0.4);
 }
 
 .qa-hero p {
-  color: rgba(255,255,255,0.78) !important;
-  font-size: 0.92rem;
-  line-height: 1.5;
+  color: rgba(255,255,255,0.82) !important;
+  font-size: 1.05rem;
+  line-height: 1.55;
   margin: 0;
-  max-width: 60ch;
+  max-width: 62ch;
   font-weight: 400;
 }
 
@@ -1265,10 +1292,10 @@ hr {
 .qa-hero-chips {
   position: relative;
   z-index: 2;
-  margin-top: 12px;
+  margin-top: 24px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 .qa-hero-chip {
   display: inline-flex;
@@ -1299,8 +1326,8 @@ hr {
 
 /* Responsive: shrink on narrow screens */
 @media (max-width: 720px) {
-  .qa-hero { padding: 20px 22px; }
-  .qa-hero h1 { font-size: 1.6rem !important; }
+  .qa-hero { padding: 40px 28px; min-height: 50vh; }
+  .qa-hero h1 { font-size: 2rem !important; }
 }
 
 /* ──────────────────────────────────────────────
