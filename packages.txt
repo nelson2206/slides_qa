@@ -1,3 +1,2 @@
 libreoffice
 poppler-utils
-fonts-inter

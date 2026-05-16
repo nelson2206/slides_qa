@@ -7,10 +7,6 @@ textColor = "#2d0e17"
 font = "sans serif"
 base = "light"
 
-[server]
-headless = false
-runOnSave = true
-
 [browser]
 gatherUsageStats = false
 

@@ -30,3 +30,6 @@ Thumbs.db
 # Local thumbnails / cache
 ppt_thumbs_*/
 ppt_thumbs_lo_*/
+
+# Claude Code local settings (per-machine permission overrides)
+.claude/
