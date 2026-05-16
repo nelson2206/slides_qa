@@ -200,9 +200,6 @@ c1, c2 = st.columns(2)
 c1.metric("Slides", deck["slide_count"])
 c2.metric("Con imágenes", n_visuals)
 
-with st.expander("Ver contenido extraído"):
-    st.json(deck, expanded=False)
-
 
 # ---------------------------------------------------------------------------
 # Provider selector (main page) — only when at least one key is configured
@@ -224,12 +221,6 @@ if available_providers:
     )
     api_key, _ = keys_status[selected_provider]
     mode = "full"
-else:
-    st.info(
-        "Sin API key configurada. Vas a correr en **modo local** (gratis, "
-        "solo checks estructurales). Para análisis semántico configurá una "
-        "key en el sidebar."
-    )
 
 
 # ---------------------------------------------------------------------------
