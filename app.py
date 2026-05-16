@@ -402,9 +402,9 @@ if run_button:
     st.markdown("---")
     getattr(styles, "scroll_anchor", lambda *a, **kw: None)("qa-progress")
     styles.section_label("Progreso")
-    status_box = st.empty()
     progress_bar = st.empty()
     live_table = st.empty()
+    error_box = st.empty()
 
     # Bring the progress section into view as soon as the run starts.
     getattr(styles, "auto_scroll_to", lambda *a, **kw: None)("qa-progress")
@@ -412,6 +412,8 @@ if run_button:
     completed_slides: list[dict] = []
     result_obj = None
     error = None
+    current_phase: str = "Iniciando…"
+    estimated_total = deck_to_run["slide_count"]
     run_start_ts = __import__("time").monotonic()
 
     def _current_sev_counts() -> dict[str, int]:
@@ -422,9 +424,18 @@ if run_button:
             counts[sev] = counts.get(sev, 0) + 1
         return counts
 
-    def _render_progress(payload: dict | None = None, *, current_label: str | None = None):
-        completed = payload["completed"] if payload else len(completed_slides)
-        total = payload["total"] if payload else max(1, len(completed_slides))
+    def _render_progress(
+        payload: dict | None = None,
+        *,
+        current_label: str | None = None,
+        indeterminate: bool = False,
+    ):
+        if payload:
+            completed = payload["completed"]
+            total = payload["total"]
+        else:
+            completed = len(completed_slides)
+            total = estimated_total if estimated_total > 0 else max(1, len(completed_slides))
         elapsed = __import__("time").monotonic() - run_start_ts
         progress_bar.markdown(
             getattr(styles, "live_progress_html", lambda *a, **kw: "")(
@@ -432,9 +443,14 @@ if run_button:
                 sev_counts=_current_sev_counts(),
                 elapsed_s=elapsed,
                 current_label=current_label,
+                phase=current_phase,
+                indeterminate=indeterminate,
             ),
             unsafe_allow_html=True,
         )
+
+    # Initial render: show the dashboard immediately, indeterminate state.
+    _render_progress(indeterminate=True)
 
     def _render_live_table():
         if not completed_slides:
@@ -456,7 +472,10 @@ if run_button:
 
     for kind, payload in runner:
         if kind == "status":
-            status_box.info(payload)
+            current_phase = payload
+            # While no slides have been completed yet, keep the bar
+            # indeterminate so the user sees motion during the setup phases.
+            _render_progress(indeterminate=(len(completed_slides) == 0))
         elif kind == "slide_done":
             completed_slides.append(payload)
             n = payload["slide_number"]
@@ -465,7 +484,8 @@ if run_button:
             _render_progress(payload, current_label=label)
             _render_live_table()
         elif kind == "visual_done":
-            status_box.info(f"Visión · {payload['completed']} / {payload['total']}")
+            current_phase = f"Visión · {payload['completed']} / {payload['total']}"
+            _render_progress()
         elif kind == "error":
             error = payload
             break
@@ -473,13 +493,12 @@ if run_button:
             result_obj = payload
 
     if error:
-        status_box.error(f"Error · {error}")
+        error_box.error(f"Error · {error}")
         st.stop()
     if result_obj is None:
-        status_box.error("No se recibió resultado.")
+        error_box.error("No se recibió resultado.")
         st.stop()
 
-    status_box.success("Análisis completo.")
     progress_bar.empty()
     live_table.empty()
 

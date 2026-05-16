@@ -325,6 +325,57 @@ def test_classify_slide_role_cv():
         assert classify_slide_role(slide) == "cv", f"Failed on {kw!r}"
 
 
+def test_classify_slide_role_toc_by_numbered_chapters():
+    """A slide in position 2-4 whose body has multiple numbered items is
+    detected as a TOC/index even when the title isn't 'Agenda'/'Índice'."""
+    slide = {
+        "slide_number": 3,
+        "layout_name": "Title and Content",
+        "title": "Project Acceleration Hub",
+        "shapes": [
+            {"is_title": True, "text": "Project Acceleration Hub"},
+            {"is_title": False, "text": "01 Contexto y objetivos"},
+            {"is_title": False, "text": "02 Nuestro enfoque"},
+            {"is_title": False, "text": "03 Plan de trabajo"},
+            {"is_title": False, "text": "04 Equipo"},
+        ],
+    }
+    assert classify_slide_role(slide) == "index"
+
+
+def test_classify_slide_role_toc_with_multiline_paragraphs():
+    """TOC can also be detected when items are paragraphs inside one shape."""
+    slide = {
+        "slide_number": 2,
+        "layout_name": "Title and Content",
+        "title": None,
+        "shapes": [
+            {
+                "is_title": False,
+                "text": "1. Introducción\n2. Diagnóstico\n3. Propuesta\n4. Próximos pasos",
+            },
+        ],
+    }
+    assert classify_slide_role(slide) == "index"
+
+
+def test_classify_slide_role_toc_not_detected_outside_position_range():
+    """Numbered list deep in the deck is NOT a TOC."""
+    slide = {
+        "slide_number": 20,
+        "layout_name": "Title and Content",
+        "title": "Pasos del plan",
+        "shapes": [
+            {"is_title": True, "text": "Pasos del plan"},
+            {"is_title": False, "text": "01 Discovery"},
+            {"is_title": False, "text": "02 Design"},
+            {"is_title": False, "text": "03 Build"},
+        ],
+    }
+    role = classify_slide_role(slide)
+    assert role != "index"
+
+
 def test_classify_slide_role_section_divider_by_exact_title():
     """Slides titled with common consulting-deck section names are dividers
     even on a regular layout (and with a small body)."""

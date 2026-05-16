@@ -846,6 +846,37 @@ _SECTION_DIVIDER_EXACT_TITLES = (
 )
 
 
+_TOC_NUMBER_PREFIX_RE = re.compile(
+    r"^\s*(?:\d{1,2}|[IVX]{1,4})\s*[\.\)\-–—:]?\s*\S"
+)
+
+
+def _looks_like_toc(slide: dict[str, Any]) -> bool:
+    """Heuristic: this slide is structurally a table of contents.
+
+    Looks for ≥3 short text items (or paragraphs within text shapes) that
+    start with a numbered prefix (1., 01, I., etc.). Catches the case where
+    the deck has an index/TOC slide whose title isn't 'Agenda'/'Índice' but
+    whose body lists 'Capítulo 01 — Introducción', '02 Análisis', etc.
+    """
+    numbered_items = 0
+    short_items = 0
+    for shape in slide.get("shapes", []):
+        if shape.get("is_title"):
+            continue
+        text = (shape.get("text") or "").strip()
+        if not text:
+            continue
+        for line in text.split("\n"):
+            line = line.strip()
+            if not line or len(line) > 120:
+                continue
+            short_items += 1
+            if _TOC_NUMBER_PREFIX_RE.match(line):
+                numbered_items += 1
+    return numbered_items >= 3
+
+
 def _title_has_any_keyword(title_norm: str, keywords: tuple[str, ...]) -> bool:
     """Check if a normalized title contains any of the given keywords.
 
@@ -915,6 +946,12 @@ def classify_slide_role(slide: dict[str, Any], *, total_slides: int | None = Non
 
     # Index / agenda — keyword match in title (typically early in the deck).
     if has_title and _title_has_any_keyword(title_norm, _INDEX_TITLE_KEYWORDS):
+        return "index"
+
+    # Structural index detection — a slide between positions 2-4 whose body
+    # is a numbered list of chapters/sections is a TOC, even if the title
+    # doesn't say 'Agenda' or 'Índice'.
+    if 2 <= slide_n <= 4 and _looks_like_toc(slide):
         return "index"
 
     if has_title and _title_has_any_keyword(title_norm, _REFERENCES_TITLE_KEYWORDS):

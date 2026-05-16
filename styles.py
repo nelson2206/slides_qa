@@ -596,9 +596,51 @@ hr {
   box-shadow: 0 0 12px rgba(45,186,138,0.45);
 }
 .qa-prog-bar-fill.done::after { animation: none; }
+
+/* Indeterminate: sliding marquee bar */
+.qa-prog-bar-fill.indeterminate {
+  width: 35% !important;
+  animation: qa-prog-indeterminate 1.4s cubic-bezier(0.65, 0.05, 0.36, 1) infinite;
+  background: linear-gradient(90deg,
+    transparent 0%, var(--accent) 30%, var(--accent) 70%, transparent 100%);
+  box-shadow: none;
+}
+.qa-prog-bar-fill.indeterminate::after { display: none; }
+@keyframes qa-prog-indeterminate {
+  0%   { transform: translateX(-130%); }
+  100% { transform: translateX(330%); }
+}
+
 @keyframes qa-prog-shimmer {
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
+}
+
+.qa-prog-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid var(--border-soft);
+  border-radius: 100px;
+  align-self: flex-start;
+  letter-spacing: -0.005em;
+}
+.qa-prog-phase-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 100px;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(233,78,119,0.6);
+  animation: qa-prog-phase-pulse 1.6s ease-in-out infinite;
+}
+@keyframes qa-prog-phase-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
 }
 .qa-prog-chips {
   display: flex;
@@ -1790,9 +1832,16 @@ def live_progress_html(
     sev_counts: dict[str, int] | None = None,
     elapsed_s: float | None = None,
     current_label: str | None = None,
+    phase: str | None = None,
+    indeterminate: bool = False,
 ) -> str:
     """Build a rich progress dashboard: big percentage + bar + per-severity
-    pills + ETA + current slide. Designed to replace the default st.progress."""
+    pills + ETA + current slide + phase pill.
+
+    `indeterminate=True` switches the bar to a sliding marquee animation —
+    use during phases where total/completed don't apply (e.g. extracting
+    images, running storyline).
+    """
     sev_counts = sev_counts or {}
     pct = (completed / total * 100) if total > 0 else 0
     pct_int = int(round(pct))
@@ -1831,13 +1880,29 @@ def live_progress_html(
         if current_label else ""
     )
 
-    done_status = pct >= 100
-    bar_class = "qa-prog-bar-fill" + (" done" if done_status else "")
+    done_status = pct >= 100 and not indeterminate
+    bar_class = "qa-prog-bar-fill"
+    if done_status:
+        bar_class += " done"
+    if indeterminate:
+        bar_class += " indeterminate"
+
+    # Indeterminate bar uses width:35% animated; otherwise width = pct
+    bar_style = "" if indeterminate else f"width: {pct:.1f}%;"
+
+    phase_html = (
+        f'<div class="qa-prog-phase"><span class="qa-prog-phase-dot"></span>'
+        f'{_escape_html(phase)}</div>'
+        if phase else ""
+    )
+
+    pct_display = "—" if indeterminate else str(pct_int)
+    pct_sym = "" if indeterminate else '<span class="qa-prog-pct-sym">%</span>'
 
     return (
         '<div class="qa-prog">'
         '<div class="qa-prog-head">'
-        f'<div class="qa-prog-pct">{pct_int}<span class="qa-prog-pct-sym">%</span></div>'
+        f'<div class="qa-prog-pct">{pct_display}{pct_sym}</div>'
         '<div class="qa-prog-meta">'
         f'<div class="qa-prog-fraction"><strong>{completed}</strong> / {total} slides analizados</div>'
         f'{eta_html}'
@@ -1845,9 +1910,10 @@ def live_progress_html(
         '</div>'
         '</div>'
         '<div class="qa-prog-bar-track">'
-        f'<div class="{bar_class}" style="width: {pct:.1f}%;"></div>'
+        f'<div class="{bar_class}" style="{bar_style}"></div>'
         '</div>'
         f'{counts_html}'
+        f'{phase_html}'
         '</div>'
     )
 
