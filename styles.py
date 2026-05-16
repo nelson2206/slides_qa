@@ -565,6 +565,163 @@ hr {
   font-weight: 700;
 }
 
+/* ──────────────────────────────────────────────
+   Slide card + checklist (per-slide layout)
+   ────────────────────────────────────────────── */
+.qa-slide-card {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 14px;
+  transition: var(--dur-normal) var(--ease-spring);
+}
+.qa-slide-card:hover {
+  background: rgba(255,255,255,0.92);
+  box-shadow: var(--shadow-sm);
+}
+.qa-slide-card.sev-critical { border-left-color: var(--status-crit); }
+.qa-slide-card.sev-warning  { border-left-color: var(--status-warn); }
+.qa-slide-card.sev-nit      { border-left-color: #075985; }
+.qa-slide-card.sev-ok       { border-left-color: var(--status-ok); }
+
+.qa-slide-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border-soft);
+  flex-wrap: wrap;
+}
+.qa-slide-sev { font-size: 1.15rem; line-height: 1; }
+.qa-slide-num {
+  font-weight: 800;
+  font-size: 0.98rem;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.qa-slide-score {
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 100px;
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+.qa-slide-score.sev-critical { background: var(--status-crit-bg); color: var(--status-crit); }
+.qa-slide-score.sev-warning  { background: var(--status-warn-bg); color: var(--status-warn); }
+.qa-slide-score.sev-nit      { background: #eef6fc; color: #075985; }
+.qa-slide-score.sev-ok       { background: var(--status-ok-bg); color: var(--status-ok); }
+.qa-slide-role {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding: 2px 7px;
+  background: rgba(61,13,26,0.04);
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+}
+.qa-slide-title {
+  flex: 1;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.qa-slide-body {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+.qa-slide-thumb {
+  flex-shrink: 0;
+  width: 210px;
+}
+.qa-slide-thumb img {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  display: block;
+  background: var(--bg-card);
+}
+.qa-slide-checks { flex: 1; min-width: 0; }
+
+/* Checklist row */
+.qa-checklist {}
+.qa-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.qa-checklist-item:first-child { padding-top: 0; }
+.qa-checklist-item:last-child { border-bottom: none; padding-bottom: 0; }
+.qa-checklist-icon {
+  font-size: 1.05rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  line-height: 1.4;
+}
+.qa-checklist-icon.ok   { color: var(--status-ok); }
+.qa-checklist-icon.fail { color: var(--status-crit); }
+.qa-checklist-icon.na   { color: var(--text-faint); }
+.qa-checklist-main { flex: 1; min-width: 0; }
+.qa-checklist-row1 {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.qa-checklist-label {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  flex-shrink: 0;
+}
+.qa-checklist-status {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  flex: 1;
+  min-width: 0;
+}
+.qa-checklist-current {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 3px 8px;
+  background: var(--surface-3);
+  border-left: 2px solid var(--border-strong);
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  max-width: 100%;
+  word-break: break-word;
+}
+.qa-checklist-suggestion {
+  margin-top: 7px;
+  padding: 8px 11px;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  font-size: 0.83rem;
+  color: var(--bg-panel);
+  line-height: 1.45;
+}
+.qa-checklist-suggestion::before {
+  content: "→ ";
+  color: var(--accent);
+  font-weight: 700;
+}
+
 /* Hide Streamlit chrome */
 footer { visibility: hidden; }
 #MainMenu { visibility: hidden; }
@@ -624,6 +781,206 @@ def _escape_html(text: str) -> str:
         .replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
+    )
+
+
+_SEVERITY_EMOJI = {
+    "critical": "🔴",
+    "warning":  "🟡",
+    "nit":      "🔵",
+    "ok":       "🟢",
+}
+
+
+def _icon_for(value) -> tuple[str, str]:
+    """Map a True/False/None value to (icon, variant) for a checklist row."""
+    if value is True:
+        return ("✓", "ok")
+    if value is False:
+        return ("✗", "fail")
+    return ("—", "na")
+
+
+def _checklist_row_html(
+    icon: str,
+    variant: str,
+    label: str,
+    status: str,
+    *,
+    current: str | None = None,
+    suggestion: str | None = None,
+) -> str:
+    current_html = (
+        f'<div class="qa-checklist-current">{_escape_html(current)}</div>'
+        if current else ""
+    )
+    suggestion_html = (
+        f'<div class="qa-checklist-suggestion">{_escape_html(suggestion)}</div>'
+        if suggestion else ""
+    )
+    return (
+        '<div class="qa-checklist-item">'
+        f'<div class="qa-checklist-icon {variant}">{icon}</div>'
+        '<div class="qa-checklist-main">'
+        '<div class="qa-checklist-row1">'
+        f'<span class="qa-checklist-label">{_escape_html(label)}</span>'
+        f'<span class="qa-checklist-status">{_escape_html(status)}</span>'
+        '</div>'
+        f'{current_html}'
+        f'{suggestion_html}'
+        '</div>'
+        '</div>'
+    )
+
+
+def slide_card_html(slide: dict, thumb_bytes: bytes | None = None) -> str:
+    """Build the full HTML for one slide card (header + thumbnail + checklist).
+
+    Renders a self-contained card per slide showing all checks reviewed as a
+    compact checklist with inline suggestions.
+    """
+    import base64 as _base64
+    n = slide["slide_number"]
+    score = slide.get("score")
+    sev = slide.get("severity") or "nit"
+    role = slide.get("role", "?")
+    skipped_tag = " · skipped" if slide.get("_skipped") else ""
+    title = slide["action_title"].get("current_title") or ""
+    if not title:
+        title = "(sin título)"
+    title_disp = (title[:80] + "…") if len(title) > 80 else title
+
+    sev_emoji = _SEVERITY_EMOJI.get(sev, "·")
+    score_text = f"{score}/10" if score is not None else "—"
+
+    # Thumbnail
+    thumb_html = ""
+    if thumb_bytes:
+        b64 = _base64.b64encode(thumb_bytes).decode("ascii")
+        thumb_html = (
+            '<div class="qa-slide-thumb">'
+            f'<img src="data:image/png;base64,{b64}" alt="Slide {n}" />'
+            '</div>'
+        )
+
+    # Checklist rows
+    rows: list[str] = []
+
+    # Action title
+    at = slide["action_title"]
+    icon, variant = _icon_for(at.get("is_action_title"))
+    rows.append(_checklist_row_html(
+        icon, variant, "Action title",
+        at.get("notes", "—"),
+        current=at.get("current_title") if at.get("is_action_title") is not True else None,
+        suggestion=at.get("suggestion"),
+    ))
+
+    # So-what
+    sw = slide["so_what"]
+    icon, variant = _icon_for(sw.get("present"))
+    rows.append(_checklist_row_html(
+        icon, variant, "So-what",
+        sw.get("notes", "—"),
+        suggestion=sw.get("suggestion"),
+    ))
+
+    # Causa → consecuencia
+    cc = slide["cause_consequence"]
+    icon, variant = _icon_for(cc.get("ok"))
+    rows.append(_checklist_row_html(
+        icon, variant, "Causa → consecuencia",
+        cc.get("notes", "—"),
+    ))
+
+    # Longitud de párrafos
+    tl = slide["text_length"]
+    icon, variant = _icon_for(tl.get("ok"))
+    status_text = tl.get("notes", "—")
+    if tl.get("long_paragraphs"):
+        # Show first long paragraph snippet inline
+        first = tl["long_paragraphs"][0]
+        more = (
+            f" (+{len(tl['long_paragraphs']) - 1} más)"
+            if len(tl["long_paragraphs"]) > 1 else ""
+        )
+        status_text = status_text + " · " + first + more
+    rows.append(_checklist_row_html(
+        icon, variant, "Longitud de párrafos",
+        status_text,
+        suggestion=tl.get("suggestion"),
+    ))
+
+    # Pie de página
+    footer = slide["footer"]
+    if not footer.get("present"):
+        f_icon, f_variant = "—", "na"
+        f_status = "Sin pie de página"
+    elif footer.get("matches_canonical") is False:
+        f_icon, f_variant = "✗", "fail"
+        f_status = "Texto distinto al canónico"
+    elif footer.get("aligned") is False:
+        f_icon, f_variant = "✗", "fail"
+        f_status = "Posición / alineación off"
+    else:
+        f_icon, f_variant = "✓", "ok"
+        f_status = "Canónico OK"
+    canonical = footer.get("canonical_text")
+    footer_suggestion = None
+    if not footer.get("present") and canonical:
+        footer_suggestion = f'Agregar el footer canónico: "{canonical}"'
+    elif footer.get("matches_canonical") is False and canonical:
+        footer_suggestion = f'Reemplazar por el canónico: "{canonical}"'
+    rows.append(_checklist_row_html(
+        f_icon, f_variant, "Pie de página",
+        f_status,
+        current=footer.get("current_footer") if footer.get("present") else None,
+        suggestion=footer_suggestion,
+    ))
+
+    # Visual (if present)
+    if slide.get("visual"):
+        v = slide["visual"]
+        vq = v.get("visual_quality", {})
+        icon, variant = _icon_for(vq.get("ok"))
+        rows.append(_checklist_row_html(
+            icon, variant, "Análisis visual",
+            vq.get("notes", "—"),
+            suggestion=vq.get("suggestion"),
+        ))
+        cr = v.get("chart_readability", {})
+        if cr.get("present"):
+            icon, variant = _icon_for(cr.get("ok"))
+            rows.append(_checklist_row_html(
+                icon, variant, "Chart readability",
+                cr.get("notes", "—"),
+                suggestion=cr.get("suggestion"),
+            ))
+        if v.get("design_issues"):
+            issues_text = " · ".join(v["design_issues"][:3])
+            if len(v["design_issues"]) > 3:
+                issues_text += f" (+{len(v['design_issues']) - 3} más)"
+            rows.append(_checklist_row_html(
+                "✗", "fail", "Issues de diseño",
+                issues_text,
+            ))
+
+    checks_html = '<div class="qa-checklist">' + "".join(rows) + '</div>'
+
+    return (
+        f'<div class="qa-slide-card sev-{sev}">'
+        '<div class="qa-slide-header">'
+        f'<span class="qa-slide-sev">{sev_emoji}</span>'
+        f'<span class="qa-slide-num">Slide {n}</span>'
+        f'<span class="qa-slide-score sev-{sev}">{score_text}</span>'
+        f'<span class="qa-slide-role">{_escape_html(role)}{_escape_html(skipped_tag)}</span>'
+        f'<span class="qa-slide-title">{_escape_html(title_disp)}</span>'
+        '</div>'
+        '<div class="qa-slide-body">'
+        f'{thumb_html}'
+        f'<div class="qa-slide-checks">{checks_html}</div>'
+        '</div>'
+        '</div>'
     )
 
 
