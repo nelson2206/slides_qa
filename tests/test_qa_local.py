@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from extractor import extract_deck
-from qa import SEVERITY_ORDER, run_local_qa, severity_for
+from qa import SEVERITY_ORDER, _clamp_score, run_local_qa, severity_for
 
 
 def _drive(gen):
@@ -158,3 +158,29 @@ def test_local_qa_severity_distribution_bad_deck(bad_deck_path):
     severities = [s["severity"] for s in result["slides"]]
     # At least one slide is bad enough to be critical or warning
     assert any(s in ("critical", "warning") for s in severities)
+
+
+# -------- Score clamp (defensive) --------
+
+def test_clamp_score_within_range():
+    assert _clamp_score(0) == 0
+    assert _clamp_score(5) == 5
+    assert _clamp_score(10) == 10
+
+
+def test_clamp_score_above_max():
+    """The LLM has been observed returning scores > 10 despite schema bounds."""
+    assert _clamp_score(62) == 10
+    assert _clamp_score(28) == 10
+    assert _clamp_score(11) == 10
+
+
+def test_clamp_score_below_min():
+    assert _clamp_score(-5) == 0
+    assert _clamp_score(-1) == 0
+
+
+def test_clamp_score_handles_garbage():
+    assert _clamp_score(None) == 0
+    assert _clamp_score("not a number") == 0
+    assert _clamp_score(7.8) == 7  # float gets int-cast

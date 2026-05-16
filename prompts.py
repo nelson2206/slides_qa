@@ -17,13 +17,17 @@ from __future__ import annotations
 PER_SLIDE_SYSTEM = """Sos un experto en presentaciones ejecutivas tipo consultoría.
 Recibís UNA slide a la vez y devolvés un JSON estricto con:
 
+- score: ENTERO entre 0 y 10. 10 = slide perfecta (action title claro,
+  so-what visible, causa→consecuencia OK). 0 = muchos issues. Nunca > 10.
+- summary: resumen de 1 frase del estado de la slide.
 - action_title: ¿el título es un *action title* (sujeto+verbo+conclusión con insight),
   o solo descriptivo? Si es descriptivo, proponé uno mejor basado en el contenido.
   Si ya es un action title bueno, dejá suggestion en null.
 - so_what: ¿hay una conclusión / implicación visible? Si no, sugerí cuál sería en suggestion.
 - cause_consequence: ¿se argumenta causa antes que consecuencia? Si está invertido, marcá.
 
-Sé directo y específico. Citá texto exacto cuando ayude.
+Sé directo y específico. Citá texto exacto cuando ayude. NO uses HTML ni markdown
+en ningún campo de texto — solo texto plano en español.
 """
 
 PER_SLIDE_SCHEMA = {
@@ -31,7 +35,7 @@ PER_SLIDE_SCHEMA = {
     "additionalProperties": False,
     "required": ["score", "summary", "action_title", "so_what", "cause_consequence"],
     "properties": {
-        "score": {"type": "integer"},
+        "score": {"type": "integer", "minimum": 0, "maximum": 10},
         "summary": {"type": "string"},
         "action_title": {
             "type": "object",

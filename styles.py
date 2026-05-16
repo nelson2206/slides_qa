@@ -602,18 +602,20 @@ def pill(text: str, variant: str = "muted") -> str:
 
 
 def cost_panel(label: str, value: str, sub: str | None = None) -> None:
-    """Burgundy panel for highlighted cost displays."""
+    """Burgundy panel for highlighted cost displays.
+
+    NOTE: HTML must NOT have leading whitespace — markdown treats lines
+    indented 4+ spaces as a code block, so the divs would render literally.
+    """
     sub_html = f'<div class="qa-cost-panel-sub">{sub}</div>' if sub else ""
-    st.markdown(
-        f"""
-        <div class="qa-cost-panel">
-            <div class="qa-cost-panel-label">{label}</div>
-            <div class="qa-cost-panel-value">{value}</div>
-            {sub_html}
-        </div>
-        """,
-        unsafe_allow_html=True,
+    html = (
+        '<div class="qa-cost-panel">'
+        f'<div class="qa-cost-panel-label">{label}</div>'
+        f'<div class="qa-cost-panel-value">{value}</div>'
+        f'{sub_html}'
+        '</div>'
     )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def _escape_html(text: str) -> str:
@@ -634,11 +636,11 @@ def check_block(
     notes: str | None = None,
     suggestion: str | None = None,
 ) -> None:
-    """Render one check as a self-contained card with:
-    - title (left) + verdict pill (right)
-    - optional `current_value` shown in code-style
-    - notes (one line explaining the verdict)
-    - optional suggestion box in accent color
+    """Render one check as a self-contained card.
+
+    NOTE: do NOT indent the HTML — leading whitespace (4+ spaces) makes
+    Streamlit's markdown parser treat it as a code block, so the divs
+    render as literal text instead of styled HTML.
     """
     current_html = (
         f'<div class="qa-check-current">{_escape_html(current_value)}</div>'
@@ -653,17 +655,15 @@ def check_block(
         if suggestion
         else ""
     )
-    st.markdown(
-        f"""
-        <div class="qa-check">
-            <div class="qa-check-header">
-                <span class="qa-check-title">{_escape_html(title)}</span>
-                <span class="qa-pill {pill_variant}">{_escape_html(pill_text)}</span>
-            </div>
-            {current_html}
-            {notes_html}
-            {suggestion_html}
-        </div>
-        """,
-        unsafe_allow_html=True,
+    html = (
+        '<div class="qa-check">'
+        '<div class="qa-check-header">'
+        f'<span class="qa-check-title">{_escape_html(title)}</span>'
+        f'<span class="qa-pill {pill_variant}">{_escape_html(pill_text)}</span>'
+        '</div>'
+        f'{current_html}'
+        f'{notes_html}'
+        f'{suggestion_html}'
+        '</div>'
     )
+    st.markdown(html, unsafe_allow_html=True)

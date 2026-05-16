@@ -263,6 +263,38 @@ class ClaudeProvider(Provider):
         return parsed
 
     def analyze_visual(self, slide_number, images, slide_title, body_text):
+        # Claude vision only accepts these formats — filter unsupported
+        # embedded image types (emf, wmf, tiff, bmp, svg, etc.) which would
+        # cause a 400 invalid_request_error from the API.
+        SUPPORTED = {"jpeg", "jpg", "png", "gif", "webp"}
+        filtered = [(b, e) for b, e in images if e.lower() in SUPPORTED]
+
+        if not filtered:
+            return {
+                "slide_number": slide_number,
+                "visual_quality": {
+                    "ok": True,
+                    "notes": (
+                        f"Slide tiene {len(images)} imagen(es) en formato no "
+                        f"soportado por la API de visión (ej: emf/wmf/tiff). "
+                        f"No se pudo analizar."
+                    ),
+                    "suggestion": None,
+                },
+                "chart_readability": {
+                    "present": False, "ok": True,
+                    "notes": "Formato no soportado.", "suggestion": None,
+                },
+                "design_issues": [],
+                "_usage": {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0},
+            }
+
+        skipped_count = len(images) - len(filtered)
+        skipped_note = (
+            f" (Se saltaron {skipped_count} imagen(es) en formato no soportado.)"
+            if skipped_count else ""
+        )
+
         content: list[dict[str, Any]] = [
             {
                 "type": "text",
@@ -270,12 +302,15 @@ class ClaudeProvider(Provider):
                     f"Slide número: {slide_number}\n"
                     f"Título: {slide_title or '(sin título)'}\n"
                     f"Cuerpo de texto:\n{body_text or '(vacío)'}\n\n"
-                    f"A continuación van {len(images)} imagen(es) embebida(s):"
+                    f"A continuación van {len(filtered)} imagen(es) embebida(s)."
+                    f"{skipped_note}"
                 ),
             }
         ]
-        for img_bytes, ext in images:
-            media_type = "image/jpeg" if ext.lower() in ("jpg", "jpeg") else f"image/{ext.lower()}"
+        for img_bytes, ext in filtered:
+            media_type = (
+                "image/jpeg" if ext.lower() in ("jpg", "jpeg") else f"image/{ext.lower()}"
+            )
             content.append(
                 {
                     "type": "image",
@@ -383,6 +418,36 @@ class OpenAIProvider(Provider):
         return parsed
 
     def analyze_visual(self, slide_number, images, slide_title, body_text):
+        # GPT-4o vision only accepts these formats.
+        SUPPORTED = {"jpeg", "jpg", "png", "gif", "webp"}
+        filtered = [(b, e) for b, e in images if e.lower() in SUPPORTED]
+
+        if not filtered:
+            return {
+                "slide_number": slide_number,
+                "visual_quality": {
+                    "ok": True,
+                    "notes": (
+                        f"Slide tiene {len(images)} imagen(es) en formato no "
+                        f"soportado por la API de visión (ej: emf/wmf/tiff). "
+                        f"No se pudo analizar."
+                    ),
+                    "suggestion": None,
+                },
+                "chart_readability": {
+                    "present": False, "ok": True,
+                    "notes": "Formato no soportado.", "suggestion": None,
+                },
+                "design_issues": [],
+                "_usage": {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0},
+            }
+
+        skipped_count = len(images) - len(filtered)
+        skipped_note = (
+            f" (Se saltaron {skipped_count} imagen(es) en formato no soportado.)"
+            if skipped_count else ""
+        )
+
         content: list[dict[str, Any]] = [
             {
                 "type": "text",
@@ -390,11 +455,12 @@ class OpenAIProvider(Provider):
                     f"Slide número: {slide_number}\n"
                     f"Título: {slide_title or '(sin título)'}\n"
                     f"Cuerpo de texto:\n{body_text or '(vacío)'}\n\n"
-                    f"A continuación van {len(images)} imagen(es) embebida(s):"
+                    f"A continuación van {len(filtered)} imagen(es) embebida(s)."
+                    f"{skipped_note}"
                 ),
             }
         ]
-        for img_bytes, ext in images:
+        for img_bytes, ext in filtered:
             media_type = "jpeg" if ext.lower() in ("jpg", "jpeg") else ext.lower()
             b64 = base64.b64encode(img_bytes).decode("ascii")
             content.append(

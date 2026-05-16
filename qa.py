@@ -70,6 +70,17 @@ def severity_for(score: int | None) -> str:
     return "ok"
 
 
+def _clamp_score(s: Any) -> int:
+    """Clamp LLM-returned score to 0..10. Defends against models that
+    occasionally return scores outside the 0-10 range despite schema bounds.
+    """
+    try:
+        s = int(s)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, min(10, s))
+
+
 # ---------------------------------------------------------------------------
 # Shared helper — build a per-slide finding from deterministic data only.
 # ---------------------------------------------------------------------------
@@ -256,11 +267,14 @@ def _merge_finding_with_deterministic(
 ) -> dict[str, Any]:
     paragraphs = det_slide["paragraphs"]
     footer = det_slide["footer"]
+    # Clamp the LLM-provided score defensively — schema bounds aren't always
+    # enforced strictly, and we never want to show "62/10" in the UI.
+    clamped_score = _clamp_score(finding.get("score"))
     return {
         "slide_number": finding["slide_number"],
         "role": det_slide["role"],
-        "score": finding["score"],
-        "severity": severity_for(finding["score"]),
+        "score": clamped_score,
+        "severity": severity_for(clamped_score),
         "summary": finding["summary"],
         "_skipped": finding.get("_skipped", False),
         "action_title": finding["action_title"],
