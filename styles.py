@@ -646,46 +646,40 @@ hr {
    Slide navigator — horizontal timeline track
    Dark panel with one colored brick per slide. Section names labeled below.
    ────────────────────────────────────────────── */
-/* Sticky setup. We need THREE things to work for sticky to be reliable
-   inside Streamlit's layout:
-   1) No ancestor with `overflow: hidden|auto|scroll` between the sticky
-      element and the scroll context. Streamlit's stMain / stMainBlockContainer
-      / stVerticalBlock sometimes clip — we force overflow: visible on them.
-   2) Sticky on a sensible target. We apply it on both .qa-nav and its
-      Streamlit wrapper (via permissive :has()) to maximise compatibility.
-   3) High z-index so the panel stacks above other content. */
+/* The navigator uses position: fixed (sticky was unreliable inside
+   Streamlit's layout) so it's pinned to the viewport. By default the
+   panel is always visible.
 
-/* (1) Ensure no clipping on Streamlit's content-wrapping containers */
-section[data-testid="stMain"],
-[data-testid="stMain"],
-[data-testid="stMainBlockContainer"],
-.stMainBlockContainer,
-[data-testid="stVerticalBlock"],
-.stVerticalBlock {
-  overflow: visible !important;
-}
-
-/* (2) Sticky on the Streamlit wrapper. Permissive descendant selector so it
-   matches even if Streamlit adds intermediate wrappers around our HTML. */
-[data-testid="stElementContainer"]:has(.qa-nav),
-.stElementContainer:has(.qa-nav) {
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 200 !important;
-  background: var(--surface);
-  padding-top: 6px;
-  padding-bottom: 6px;
-  margin-top: -6px;
-}
-
-/* The navigator card itself — visual only, the wrapper handles stickiness. */
+   On browsers that support scroll-driven animations (Chrome 115+ /
+   Edge 115+ / Safari 17.5+) we hide it until the user scrolls past the
+   600px mark — that puts the appearance right after the hero + filters
+   section. Older browsers gracefully fall back to "always visible". */
 .qa-nav {
-  position: relative;
+  position: fixed;
+  top: 3.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100vw - 3rem), 1200px);
+  z-index: 200;
   background: linear-gradient(180deg, #14040a 0%, #1f0612 100%);
   border-radius: var(--radius);
   padding: 12px 16px 10px;
   box-shadow: 0 10px 28px rgba(20, 4, 10, 0.32);
   border: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Scroll-driven visibility: hidden initially, fades in between 480-680px scroll. */
+@supports (animation-timeline: scroll(root)) {
+  .qa-nav {
+    opacity: 0;
+    pointer-events: none;
+    animation: qa-nav-appear linear both;
+    animation-timeline: scroll(root);
+    animation-range: 480px 680px;
+  }
+}
+@keyframes qa-nav-appear {
+  to { opacity: 1; pointer-events: auto; }
 }
 
 .qa-nav-spacer { display: none; }
