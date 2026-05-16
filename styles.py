@@ -635,23 +635,26 @@ hr {
    Slide navigator — horizontal timeline track
    Dark panel with one colored brick per slide. Section names labeled below.
    ────────────────────────────────────────────── */
+/* The .qa-nav panel uses position: fixed so it survives Streamlit's nested
+   layout (sticky was unreliable inside data-testid="stElementContainer").
+   The .qa-nav-spacer rendered right after reserves the panel's vertical
+   space in the document flow so content below doesn't slide under it. */
 .qa-nav {
-  position: relative;
+  position: fixed;
+  top: 3.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100vw - 3rem), 1200px);
+  z-index: 100;
   background: linear-gradient(180deg, #14040a 0%, #1f0612 100%);
   border-radius: var(--radius);
-  padding: 12px 14px 10px;
-  margin: 0.4rem 0 1.4rem 0;
-  box-shadow: 0 6px 24px rgba(20, 4, 10, 0.22);
-  border: 1px solid rgba(255,255,255,0.04);
+  padding: 12px 16px 10px;
+  box-shadow: 0 10px 28px rgba(20, 4, 10, 0.32);
+  border: 1px solid rgba(255,255,255,0.05);
 }
-/* Make Streamlit's wrapper sticky so the panel follows the user as they scroll. */
-[data-testid="stElementContainer"]:has(> [data-testid="stMarkdownContainer"] > .qa-nav) {
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 100 !important;
-  background: var(--surface);
-  padding-top: 6px;
-  margin-top: -6px;
+.qa-nav-spacer { height: 130px; }
+@media (max-width: 720px) {
+  .qa-nav-spacer { height: 160px; }
 }
 .qa-nav-header {
   display: flex;
@@ -689,25 +692,17 @@ hr {
   align-items: stretch;
   gap: 0;
   width: 100%;
-  overflow-x: auto;
-  padding-bottom: 2px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.18) transparent;
-}
-.qa-nav-track::-webkit-scrollbar { height: 5px; }
-.qa-nav-track::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.16);
-  border-radius: 3px;
+  overflow: visible;
 }
 
 .qa-nav-section-group {
   display: flex;
   align-items: stretch;
-  gap: 3px;
-  flex: 0 0 auto;
-  /* Width = N blocks * block-w + (N-1) * gap. Falls back gracefully if --qa-block-count is unset. */
-  width: calc(var(--qa-block-count, 1) * var(--qa-block-w, 78px) + (var(--qa-block-count, 1) - 1) * 3px);
-  transition: width 220ms ease;
+  gap: 2px;
+  /* Proportional to slide count → sections with more slides take more width.
+     Inner blocks distribute equally inside their group. */
+  flex: var(--qa-block-count, 1) 1 0;
+  min-width: 0;
 }
 /* Section separator — thin vertical gap between groups */
 .qa-nav-sep {
@@ -727,8 +722,11 @@ hr {
 }
 
 .qa-nav-block {
-  flex: 0 0 var(--qa-block-w, 78px);
-  height: var(--qa-block-h, 50px);
+  /* Auto-fit: every block shares the row equally — all slides always on screen,
+     never horizontal scroll. Min-width keeps thumbs vaguely visible at 80+ slides. */
+  flex: 1 1 0;
+  min-width: 6px;
+  height: 52px;
   display: block;
   position: relative;
   overflow: hidden;
@@ -737,9 +735,10 @@ hr {
   background: rgba(255,255,255,0.04);
   cursor: pointer;
   text-decoration: none !important;
-  transition: transform 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              box-shadow 160ms ease, filter 100ms ease,
-              flex-basis 220ms ease, height 220ms ease;
+  transition: flex-grow 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              min-width 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              height 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 180ms ease, filter 100ms ease;
   user-select: none;
 }
 /* Slide dimmed because current filter would hide its card */
@@ -748,6 +747,38 @@ hr {
 }
 .qa-nav-block.filtered-out:hover {
   opacity: 1;
+}
+
+/* ───── Dock magnification ─────
+   The hovered block grows to 130px min; ±1 to 70px; ±2 to 36px. Implemented
+   with sibling combinators + :has() so layout reflows smoothly. Other blocks
+   keep flex:1 and shrink proportionally to make room. */
+
+/* Hovered */
+.qa-nav-block:hover {
+  flex-grow: 14;
+  min-width: 130px;
+  height: 84px;
+  z-index: 6;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* ±1 siblings */
+.qa-nav-block:has(+ .qa-nav-block:hover),
+.qa-nav-block:hover + .qa-nav-block {
+  flex-grow: 6;
+  min-width: 70px;
+  height: 68px;
+  z-index: 5;
+}
+
+/* ±2 siblings */
+.qa-nav-block:has(+ .qa-nav-block + .qa-nav-block:hover),
+.qa-nav-block:hover + .qa-nav-block + .qa-nav-block {
+  flex-grow: 3;
+  min-width: 36px;
+  height: 58px;
+  z-index: 4;
 }
 .qa-nav-block img {
   width: 100%;
@@ -773,18 +804,28 @@ hr {
 
 .qa-nav-block-num {
   position: absolute;
-  top: 2px;
-  left: 2px;
-  background: rgba(20, 4, 10, 0.86);
+  top: 3px;
+  left: 3px;
+  background: rgba(20, 4, 10, 0.88);
   color: rgba(255,255,255,0.96);
-  font-size: 0.62rem;
+  font-size: 0.66rem;
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 3px;
   font-feature-settings: "tnum" 1, "lnum" 1;
   letter-spacing: 0.02em;
   z-index: 2;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+/* Badge appears on magnified blocks (hovered + ±1/±2 neighbors) */
+.qa-nav-block:hover .qa-nav-block-num,
+.qa-nav-block:has(+ .qa-nav-block:hover) .qa-nav-block-num,
+.qa-nav-block:hover + .qa-nav-block .qa-nav-block-num,
+.qa-nav-block:has(+ .qa-nav-block + .qa-nav-block:hover) .qa-nav-block-num,
+.qa-nav-block:hover + .qa-nav-block + .qa-nav-block .qa-nav-block-num {
+  opacity: 1;
 }
 /* Severity stripe at the bottom of the thumbnail */
 .qa-nav-block-stripe {
@@ -823,12 +864,13 @@ hr {
   background: rgba(255,255,255,0.20);
 }
 
-/* Section labels row — width matches the section group above */
+/* Section labels row — widths match the section group above (same flex weights) */
 .qa-nav-labels {
   display: flex;
   align-items: flex-start;
   margin-top: 8px;
   gap: 0;
+  width: 100%;
 }
 .qa-nav-label {
   display: flex;
@@ -837,66 +879,10 @@ hr {
   min-width: 0;
   padding: 0 4px;
   overflow: hidden;
-  flex: 0 0 auto;
-  width: calc(var(--qa-block-count, 1) * var(--qa-block-w, 78px) + (var(--qa-block-count, 1) - 1) * 3px);
-  transition: width 220ms ease;
+  flex: var(--qa-block-count, 1) 1 0;
 }
 .qa-nav-label-sep {
-  flex: 0 0 10px;
-}
-
-/* ──────── Zoom radios ──────── */
-.qa-nav-zoom {
-  position: absolute;
-  top: 10px;
-  right: 14px;
-  display: inline-flex;
-  gap: 2px;
-  background: rgba(255,255,255,0.06);
-  padding: 3px;
-  border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.08);
-  z-index: 5;
-}
-.qa-zoom-radio { display: none; }
-.qa-nav-zoom label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 26px;
-  height: 22px;
-  padding: 0 7px;
-  font-size: 0.66rem;
-  font-weight: 700;
-  color: rgba(255,255,255,0.55);
-  background: transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  letter-spacing: 0.03em;
-  transition: background 140ms ease, color 140ms ease;
-  user-select: none;
-}
-.qa-nav-zoom label:hover { color: rgba(255,255,255,0.85); }
-.qa-zoom-s:checked  ~ label[for="qa-zoom-s"],
-.qa-zoom-m:checked  ~ label[for="qa-zoom-m"],
-.qa-zoom-l:checked  ~ label[for="qa-zoom-l"],
-.qa-zoom-xl:checked ~ label[for="qa-zoom-xl"] {
-  background: var(--accent);
-  color: white;
-}
-
-/* Block-size variable controlled by which zoom radio is checked. */
-.qa-nav { --qa-block-w: 78px; --qa-block-h: 50px; }
-.qa-nav:has(.qa-zoom-s:checked)  { --qa-block-w: 50px;  --qa-block-h: 32px; }
-.qa-nav:has(.qa-zoom-m:checked)  { --qa-block-w: 78px;  --qa-block-h: 50px; }
-.qa-nav:has(.qa-zoom-l:checked)  { --qa-block-w: 120px; --qa-block-h: 76px; }
-.qa-nav:has(.qa-zoom-xl:checked) { --qa-block-w: 170px; --qa-block-h: 108px; }
-
-/* Make room on the header so the zoom widget doesn't overlap the legend */
-.qa-nav-header { padding-right: 150px; }
-@media (max-width: 720px) {
-  .qa-nav-header { padding-right: 0; }
-  .qa-nav-zoom { position: static; margin-bottom: 6px; }
+  flex: 0 0 0px;
 }
 .qa-nav-label-name {
   font-size: 0.66rem;
@@ -951,18 +937,11 @@ hr {
   font-weight: 500;
 }
 
-/* Anchor offset on slide cards so the sticky thumb navigator doesn't cover them.
-   Scales with the current zoom level via :has() on body. */
+/* Anchor offset on slide cards so the fixed thumbnail navigator doesn't cover
+   them on jump. Navigator is ~130px tall fixed; Streamlit header adds ~56px;
+   total ~190px clearance keeps the slide title visible right under the nav. */
 .qa-slide-card,
-.qa-section-divider { scroll-margin-top: 180px; }
-body:has(.qa-zoom-s:checked)  .qa-slide-card,
-body:has(.qa-zoom-s:checked)  .qa-section-divider { scroll-margin-top: 130px; }
-body:has(.qa-zoom-m:checked)  .qa-slide-card,
-body:has(.qa-zoom-m:checked)  .qa-section-divider { scroll-margin-top: 170px; }
-body:has(.qa-zoom-l:checked)  .qa-slide-card,
-body:has(.qa-zoom-l:checked)  .qa-section-divider { scroll-margin-top: 215px; }
-body:has(.qa-zoom-xl:checked) .qa-slide-card,
-body:has(.qa-zoom-xl:checked) .qa-section-divider { scroll-margin-top: 270px; }
+.qa-section-divider { scroll-margin-top: 200px; }
 
 /* ──────────────────────────────────────────────
    Deck overview panel — promoted from expander
@@ -1586,24 +1565,20 @@ def slide_navigator(
     thumbs: dict[int, bytes] | None = None,
     visible_slide_numbers: set[int] | None = None,
 ) -> None:
-    """Sticky timeline navigator: one thumbnail per slide with severity border.
+    """Fixed timeline navigator: one thumbnail per slide, ALL slides on screen.
 
-    Includes a built-in zoom control (S/M/L/XL HTML radios + CSS :has() rules)
-    that resizes blocks instantly without re-rendering the page. Default = M.
+    Auto-fit: blocks flex-distribute the panel width so every slide is always
+    visible — no horizontal scroll. Hover triggers a macOS-dock-style local
+    magnification (the hovered slide + 2 neighbors on each side grow).
 
-    `visible_slide_numbers`, when provided, marks blocks for slides NOT in the
-    set as `filtered-out` (dimmed) — so users can still see/click them but know
-    the corresponding card is hidden by current filters.
+    Panel is `position: fixed` so it stays visible while the user scrolls
+    through the slide cards. A spacer sibling reserves its space in the flow.
 
-    When `sections` is provided, thumbnails are grouped contiguously with a thin
-    vertical separator between groups, and a labels row underneath aligns each
-    section name beneath its group. Group widths flex proportionally to the
-    block count so labels stay aligned at any zoom level.
+    `visible_slide_numbers`, when provided, marks blocks for slides NOT in
+    the set as `filtered-out` (dimmed) — so users can still see/click them
+    but know the corresponding card is hidden by current filters.
     """
     import base64 as _base64
-
-    BLOCK_GAP = 3
-    SECTION_SEP = 10
 
     thumbs = thumbs or {}
     visible_set = visible_slide_numbers  # None = all visible
@@ -1711,22 +1686,13 @@ def slide_navigator(
             '</div>'
         )
 
-    # Zoom radios (S/M/L/XL) — CSS :has() rules below update --qa-block-w
-    # without a Streamlit rerun. Default = M (78px).
-    zoom_html = (
-        '<div class="qa-nav-zoom">'
-        '<input type="radio" name="qa-nav-zoom" id="qa-zoom-s" class="qa-zoom-radio qa-zoom-s">'
-        '<input type="radio" name="qa-nav-zoom" id="qa-zoom-m" class="qa-zoom-radio qa-zoom-m" checked>'
-        '<input type="radio" name="qa-nav-zoom" id="qa-zoom-l" class="qa-zoom-radio qa-zoom-l">'
-        '<input type="radio" name="qa-nav-zoom" id="qa-zoom-xl" class="qa-zoom-radio qa-zoom-xl">'
-        '<label for="qa-zoom-s" title="Pequeño">S</label>'
-        '<label for="qa-zoom-m" title="Mediano (default)">M</label>'
-        '<label for="qa-zoom-l" title="Grande">L</label>'
-        '<label for="qa-zoom-xl" title="Extra grande">XL</label>'
-        '</div>'
+    # Fixed-positioning approach: render a spacer sibling that takes the
+    # navigator's vertical space in the flow so content below doesn't slide
+    # under the floating panel.
+    html = (
+        f'<div class="qa-nav">{header_html}{body}</div>'
+        '<div class="qa-nav-spacer"></div>'
     )
-
-    html = f'<div class="qa-nav">{zoom_html}{header_html}{body}</div>'
     st.markdown(html, unsafe_allow_html=True)
 
 
