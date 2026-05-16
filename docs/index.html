@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Holmes — El detective de tus decks</title>
+
+  <!-- Description / SEO -->
+  <meta name="description" content="Subí tu .pptx y Holmes lo investiga slide por slide: action titles, so-what, storyline, pie de página, análisis visual. Con criterio de senior MBB.">
+
+  <!-- Open Graph (WhatsApp, LinkedIn, Slack, Discord, Telegram, Facebook) -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Holmes — El detective de tus decks">
+  <meta property="og:description" content="Auditoría MBB de presentaciones, slide por slide. Subí tu .pptx y obtené un checklist de calidad: action titles, so-what, storyline, pie de página y análisis visual.">
+  <meta property="og:url" content="https://nelson2206.github.io/slides_qa/">
+  <meta property="og:image" content="https://nelson2206.github.io/slides_qa/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:alt" content="Holmes — El detective de tus decks">
+  <meta property="og:site_name" content="Holmes">
+  <meta property="og:locale" content="es_ES">
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Holmes — El detective de tus decks">
+  <meta name="twitter:description" content="Auditoría MBB de presentaciones, slide por slide.">
+  <meta name="twitter:image" content="https://nelson2206.github.io/slides_qa/og-image.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+
+  <!-- Auto-redirect to the Streamlit app. Meta refresh is the canonical
+       fallback; the inline JS below kicks in first when available. -->
+  <meta http-equiv="refresh" content="1; url=https://slides-qa.streamlit.app/">
+
+  <style>
+    *,
+    *::before,
+    *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+      color: #fff;
+      background: #14040a;
+    }
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(ellipse 60% 70% at 78% 22%, rgba(233,78,119,0.55) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 60% at 22% 78%, rgba(108,55,168,0.42) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 50% at 50% 110%, rgba(20,90,150,0.38) 0%, transparent 60%),
+        linear-gradient(135deg, #14040a 0%, #2e0a16 45%, #3d0d1a 100%);
+    }
+    .card {
+      max-width: 520px;
+      text-align: center;
+    }
+    .logo {
+      width: 96px;
+      height: 96px;
+      margin: 0 auto 28px;
+      display: block;
+      filter: drop-shadow(0 8px 24px rgba(233,78,119,0.35));
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.74rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #e94e77;
+      margin: 0 0 14px;
+      text-shadow: 0 0 18px rgba(233,78,119,0.6);
+    }
+    .eyebrow::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 100px;
+      background: #e94e77;
+      box-shadow: 0 0 10px rgba(233,78,119,0.9);
+    }
+    h1 {
+      margin: 0 0 14px;
+      font-size: 3.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+    }
+    p {
+      margin: 0 0 28px;
+      font-size: 1.02rem;
+      line-height: 1.55;
+      color: rgba(255,255,255,0.82);
+    }
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      background: #e94e77;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 100px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      transition: transform 160ms ease, box-shadow 200ms ease, background 160ms ease;
+      box-shadow: 0 6px 18px rgba(233,78,119,0.45);
+    }
+    .cta:hover {
+      background: #d13d64;
+      transform: translateY(-1px);
+      box-shadow: 0 10px 26px rgba(233,78,119,0.55);
+    }
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #fff;
+      border-radius: 100px;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .small {
+      margin-top: 24px;
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.5);
+    }
+  </style>
+
+  <script>
+    // Fire the redirect as soon as JS is available — beats the meta refresh
+    // by ~1s on the happy path. Falls back to the <meta refresh> above if JS
+    // is disabled, and the user can always click the CTA below.
+    setTimeout(function () {
+      window.location.replace("https://slides-qa.streamlit.app/");
+    }, 250);
+  </script>
+</head>
+<body>
+  <div class="card">
+    <img class="logo" src="logo.svg" alt="Holmes logo">
+    <div class="eyebrow">El detective de tus decks</div>
+    <h1>Holmes</h1>
+    <p>Auditoría MBB de presentaciones, slide por slide.<br>
+       Llevándote al aplicativo <span class="spinner" aria-hidden="true"></span></p>
+    <a class="cta" href="https://slides-qa.streamlit.app/">Abrir Holmes →</a>
+    <div class="small">Si la redirección no inicia, hacé click en el botón.</div>
+  </div>
+</body>
+</html>

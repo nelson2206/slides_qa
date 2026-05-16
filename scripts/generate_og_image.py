@@ -13,8 +13,17 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 W, H = 1200, 630
-OUT = Path(__file__).parent.parent / "static" / "og-image.png"
-OUT.parent.mkdir(parents=True, exist_ok=True)
+ROOT = Path(__file__).parent.parent
+# Write to both locations:
+#  - static/ → served by Streamlit Cloud at /app/static/og-image.png
+#  - docs/   → served by GitHub Pages (needed for WhatsApp OG previews
+#               because Streamlit puts OG meta in <body>, not <head>)
+OUTPUTS = [
+    ROOT / "static" / "og-image.png",
+    ROOT / "docs" / "og-image.png",
+]
+for p in OUTPUTS:
+    p.parent.mkdir(parents=True, exist_ok=True)
 
 
 # ----- Brand palette -----
@@ -168,8 +177,10 @@ def main() -> None:
         x += chip_w + 12
     canvas = Image.alpha_composite(canvas, chip_layer)
 
-    canvas.convert("RGB").save(OUT, "PNG", optimize=True)
-    print(f"Saved: {OUT}  ({OUT.stat().st_size // 1024} KB)")
+    rgb = canvas.convert("RGB")
+    for out in OUTPUTS:
+        rgb.save(out, "PNG", optimize=True)
+        print(f"Saved: {out}  ({out.stat().st_size // 1024} KB)")
 
 
 if __name__ == "__main__":
