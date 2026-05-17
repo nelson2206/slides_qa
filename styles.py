@@ -2194,9 +2194,10 @@ def best_practices_html() -> str:
             "intro": "El detalle visual importa. Inconsistencias gritan junior.",
             "items": [
                 ("Pie de página en la esquina inferior izquierda", "Convención de la consultora: footer alineado a la esquina inferior-izquierda. Mismo texto, misma posición (top + left), misma altura en todas las slides de contenido."),
-                ("Mayúsculas consistentes", "Todo title case, todo sentence case, o todo UPPER — no mezcla."),
+                ("Fuente brand: ForFuture Sans", "Familia oficial de la consultora. Pesos disponibles: Light, Regular, Medium, Bold, Black (cada uno con italic). Cualquier otra familia es una rotura de brand."),
+                ("Títulos en sentence case / title case — NUNCA todo MAYÚSCULAS", "La convención de la consultora es sentence case ('Las ventas cayeron en Q3') o title case ('Las Ventas Cayeron en Q3'). Nunca 'LAS VENTAS CAYERON EN Q3' — se lee como grito y reduce legibilidad."),
+                ("Mayúsculas consistentes en pie y secundarios", "Footer y subtítulos: todo title case, todo sentence case — sin mezcla entre slides."),
                 ("Jerarquía tipográfica clara", "Title, subtitle, body, caption — tamaños y pesos diferenciados pero consistentes."),
-                ("Una sola familia tipográfica", "Máximo dos: una para titles, otra para body. Sin más."),
             ],
         },
         {
@@ -2839,6 +2840,26 @@ def slide_card_html(slide: dict, thumb_bytes: bytes | None = None) -> str:
             "✗", "fail", "Densidad de texto",
             td.get("notes", "—"),
             suggestion=td.get("suggestion"),
+        ))
+
+    # Fuente brand (ForFuture Sans)
+    ff = slide.get("font_family") or {}
+    if ff.get("applicable"):
+        icon, variant = _icon_for(ff.get("ok"))
+        rows.append(_checklist_row_html(
+            icon, variant, "Fuente brand (ForFuture Sans)",
+            ff.get("notes", "—"),
+            suggestion=ff.get("suggestion"),
+        ))
+
+    # Title case — flag titles in ALL CAPS
+    tc = slide.get("title_case") or {}
+    if tc.get("applicable") and not tc.get("ok"):
+        rows.append(_checklist_row_html(
+            "✗", "fail", "Mayúsculas en título",
+            tc.get("notes", "—"),
+            current=tc.get("title"),
+            suggestion=tc.get("suggestion"),
         ))
 
     # Visual (if present)

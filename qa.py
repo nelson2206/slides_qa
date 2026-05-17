@@ -107,6 +107,8 @@ def _build_local_finding(
     title = det_slide["title"]
     min_font_size = det_slide.get("min_font_size") or {}
     text_density = det_slide.get("text_density") or {}
+    font_family = det_slide.get("font_family") or {}
+    title_case = det_slide.get("title_case") or {}
 
     # Local-only heuristics for the semantic checks
     at_h = classify_action_title_heuristic(title)
@@ -140,6 +142,13 @@ def _build_local_finding(
     if not skipped and text_density.get("applicable") and not text_density.get("ok"):
         score -= 1
         issues.append(text_density.get("notes", "Slide muy cargada."))
+    if not skipped and font_family.get("applicable") and not font_family.get("ok"):
+        # Only ding hard if the fonts are completely off-brand (not fallbacks).
+        score -= 0 if font_family.get("only_fallbacks") else 1
+        issues.append(font_family.get("notes", "Fuente fuera del estándar."))
+    if not skipped and title_case.get("applicable") and not title_case.get("ok"):
+        score -= 1
+        issues.append(title_case.get("notes", "Título en mayúsculas."))
     score = max(0, score)
 
     skip_note = f" Saltada del análisis semántico (role={role})." if skipped else ""
@@ -179,6 +188,8 @@ def _build_local_finding(
         },
         "min_font_size": min_font_size,
         "text_density": text_density,
+        "font_family": font_family,
+        "title_case": title_case,
         "_paragraphs": paragraphs,
         "_footer": det_slide["footer"],
     }
@@ -362,6 +373,8 @@ def _merge_finding_with_deterministic(
         ),
         "min_font_size": det_slide.get("min_font_size") or {},
         "text_density": det_slide.get("text_density") or {},
+        "font_family": det_slide.get("font_family") or {},
+        "title_case": det_slide.get("title_case") or {},
     }
 
 

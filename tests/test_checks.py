@@ -3,6 +3,7 @@ from __future__ import annotations
 from checks import (
     check_duplicate_titles,
     check_filename_alignment,
+    check_font_family,
     check_footer,
     check_footer_alignment,
     check_footer_caps_consistency,
@@ -14,6 +15,7 @@ from checks import (
     check_subtitle_filename_alignment,
     check_text_density,
     check_title_format_consistency,
+    check_title_not_uppercase,
     classify_action_title_heuristic,
     classify_caps,
     classify_slide_role,
@@ -523,6 +525,86 @@ def test_check_text_density_passes_on_light_slide():
     result = check_text_density(slide)
     assert result["ok"] is True
     assert result["suggestion"] is None
+
+
+# -------- check_font_family (ForFuture Sans) --------
+
+def test_check_font_family_accepts_forfuture_variants():
+    """Any weight/style of ForFuture Sans is OK."""
+    for fn in (
+        "ForFuture Sans",
+        "ForFutureSans-Bold",
+        "ForFutureSans-Regular",
+        "ForFutureSans-BlackItalic",
+        "forfuturesans",
+    ):
+        slide = {"shapes": [{"is_title": False, "font_names": [fn], "text": "x"}]}
+        result = check_font_family(slide)
+        assert result["ok"] is True, f"Failed on {fn!r}"
+
+
+def test_check_font_family_flags_off_brand():
+    slide = {
+        "shapes": [
+            {"is_title": False, "font_names": ["Comic Sans MS"], "text": "x"},
+            {"is_title": False, "font_names": ["Times New Roman"], "text": "y"},
+        ],
+    }
+    result = check_font_family(slide)
+    assert result["ok"] is False
+    assert result["only_fallbacks"] is False
+    assert "ForFuture" in result["suggestion"]
+
+
+def test_check_font_family_marks_fallbacks_as_acceptable():
+    slide = {
+        "shapes": [{"is_title": False, "font_names": ["Arial"], "text": "x"}],
+    }
+    result = check_font_family(slide)
+    assert result["ok"] is False  # still off-brand
+    assert result["only_fallbacks"] is True  # but fallback-acceptable
+
+
+def test_check_font_family_skips_when_no_explicit_font():
+    slide = {"shapes": [{"is_title": False, "text": "inherits from master"}]}
+    result = check_font_family(slide)
+    assert result["applicable"] is False
+    assert result["ok"] is True
+
+
+# -------- check_title_not_uppercase --------
+
+def test_check_title_not_uppercase_flags_all_caps():
+    slide = {"title": "ANÁLISIS DE VENTAS"}
+    result = check_title_not_uppercase(slide)
+    assert result["ok"] is False
+    assert result["suggestion"] is not None
+    assert "sentence case" in result["suggestion"]
+
+
+def test_check_title_not_uppercase_passes_sentence_case():
+    slide = {"title": "Las ventas cayeron 18% en Q3"}
+    result = check_title_not_uppercase(slide)
+    assert result["ok"] is True
+
+
+def test_check_title_not_uppercase_passes_title_case():
+    slide = {"title": "Las Ventas Cayeron 18% en Q3"}
+    result = check_title_not_uppercase(slide)
+    assert result["ok"] is True
+
+
+def test_check_title_not_uppercase_skips_short_titles():
+    """Short labels like 'P&L' or 'CV' shouldn't trigger."""
+    slide = {"title": "P&L"}
+    result = check_title_not_uppercase(slide)
+    assert result["applicable"] is False
+
+
+def test_check_title_not_uppercase_handles_empty_title():
+    slide = {"title": None}
+    result = check_title_not_uppercase(slide)
+    assert result["applicable"] is False
 
 
 # -------- footer alignment outliers --------

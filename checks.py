@@ -187,6 +187,165 @@ HEAVY_TEXT_WORD_THRESHOLD = 260
 HEAVY_TEXT_CHAR_THRESHOLD = 1900
 
 
+# Approved presentation typeface for the consultancy. ForFuture Sans is the
+# brand font (Light / Regular / Medium / Bold / Black + italics). Accept the
+# family name in either form and a small set of safe fallbacks the user might
+# use when ForFuture isn't available locally.
+APPROVED_FONT_FAMILIES = (
+    "forfuture sans",
+    "forfuture",
+)
+FALLBACK_FONT_FAMILIES = (
+    # System sans that won't break when ForFuture isn't installed.
+    "arial",
+    "calibri",
+    "helvetica",
+    "segoe ui",
+    "inter",
+)
+
+
+def _normalize_font(name: str) -> str:
+    """Lowercase + strip weight/style suffixes so 'ForFutureSans-Bold' matches
+    'ForFuture Sans'."""
+    if not name:
+        return ""
+    n = name.lower().strip()
+    # Strip common style suffixes/separators
+    for suffix in (
+        " bold", " black", " medium", " regular", " light", " italic",
+        " oblique", " thin", " heavy", " semibold", " extrabold", " extralight",
+        "-bold", "-black", "-medium", "-regular", "-light", "-italic",
+        "-blackitalic", "-bolditalic", "-mediumitalic", "-lightitalic",
+        "-regularitalic",
+    ):
+        if n.endswith(suffix):
+            n = n[: -len(suffix)]
+    # Normalize 'forfuturesans' / 'forfuture sans' / 'forfuture-sans' → 'forfuture sans'
+    n = n.replace("-", " ").replace("_", " ")
+    n = " ".join(n.split())
+    if n.replace(" ", "") == "forfuturesans":
+        return "forfuture sans"
+    return n
+
+
+def check_font_family(slide: dict[str, Any]) -> dict[str, Any]:
+    """Check that all explicitly-set fonts are the approved brand typeface
+    (ForFuture Sans) or a known safe fallback.
+
+    Shapes/runs without explicit font names are ignored (they inherit from
+    layout/master, which should be set correctly at template level).
+    """
+    seen: dict[str, list[str]] = {}  # normalized → [shape names]
+    for shape in slide.get("shapes", []):
+        names = shape.get("font_names") or []
+        for raw in names:
+            norm = _normalize_font(raw)
+            if not norm:
+                continue
+            seen.setdefault(norm, []).append(shape.get("name") or "?")
+
+    if not seen:
+        return {
+            "applicable": False,
+            "ok": True,
+            "notes": "Sin fuentes explícitas en runs (heredan del master).",
+            "fonts_used": [],
+            "approved": list(APPROVED_FONT_FAMILIES),
+        }
+
+    approved_set = set(APPROVED_FONT_FAMILIES)
+    fallback_set = set(FALLBACK_FONT_FAMILIES)
+    non_brand: list[dict[str, Any]] = []
+    for norm, shapes_using in seen.items():
+        if norm in approved_set:
+            continue
+        non_brand.append({
+            "font": norm,
+            "shapes": list(dict.fromkeys(shapes_using))[:5],
+            "fallback_ok": norm in fallback_set,
+        })
+
+    if not non_brand:
+        return {
+            "applicable": True,
+            "ok": True,
+            "notes": f"Todas las fuentes son ForFuture Sans (familia brand).",
+            "fonts_used": sorted(seen.keys()),
+            "approved": list(APPROVED_FONT_FAMILIES),
+            "suggestion": None,
+        }
+
+    only_fallbacks = all(v["fallback_ok"] for v in non_brand)
+    severity_note = "⚠️ fallback aceptable" if only_fallbacks else "fuera del estándar brand"
+    fonts_listed = ", ".join(sorted({v["font"] for v in non_brand}))
+    return {
+        "applicable": True,
+        "ok": False,
+        "notes": (
+            f"{len(non_brand)} fuente(s) no-brand: {fonts_listed} ({severity_note})."
+        ),
+        "fonts_used": sorted(seen.keys()),
+        "non_brand": non_brand,
+        "approved": list(APPROVED_FONT_FAMILIES),
+        "only_fallbacks": only_fallbacks,
+        "suggestion": (
+            "Cambiar las fuentes a ForFuture Sans (la familia brand de la "
+            "consultora). Pesos disponibles: Light, Regular, Medium, Bold, "
+            "Black (cada uno con italic)."
+        ),
+    }
+
+
+def check_title_not_uppercase(slide: dict[str, Any]) -> dict[str, Any]:
+    """Flag titles rendered in ALL CAPS — the consultancy convention is
+    sentence case / title case, never full uppercase.
+
+    Detected by checking whether the title has alphabetic characters AND all
+    of them are uppercase. Short titles (≤3 chars or all-numeric) are skipped
+    to avoid false positives on labels like 'P&L' or '2024'.
+    """
+    title = (slide.get("title") or "").strip()
+    if not title:
+        return {"applicable": False, "ok": True, "notes": "Sin título."}
+
+    # Count alphabetic chars; skip if not enough to judge
+    alpha = [c for c in title if c.isalpha()]
+    if len(alpha) <= 3:
+        return {
+            "applicable": False,
+            "ok": True,
+            "notes": "Título demasiado corto para evaluar mayúsculas.",
+            "title": title,
+        }
+
+    upper_count = sum(1 for c in alpha if c.isupper())
+    # ≥95% of alphabetic chars uppercase → considered ALL CAPS
+    pct_upper = upper_count / len(alpha)
+    is_all_caps = pct_upper >= 0.95
+
+    if not is_all_caps:
+        return {
+            "applicable": True,
+            "ok": True,
+            "title": title,
+            "pct_upper": round(pct_upper, 2),
+            "notes": "Título en case apropiado (no todo mayúsculas).",
+            "suggestion": None,
+        }
+
+    # Suggest a sentence-case rewrite (preserve first letter capitalized)
+    suggested = title.capitalize()
+    return {
+        "applicable": True,
+        "ok": False,
+        "title": title,
+        "pct_upper": round(pct_upper, 2),
+        "notes": "Título todo en MAYÚSCULAS — la convención de la consultora es sentence case / title case.",
+        "suggestion": f'Reescribir como sentence case: "{suggested}".',
+    }
+
+
 def check_text_density(slide: dict[str, Any]) -> dict[str, Any]:
     """Flag content slides whose body text density is too high for one page.
 
@@ -1215,6 +1374,8 @@ def run_deterministic_checks(file_name: str, deck: dict[str, Any]) -> dict[str, 
                 "footer": check_footer(slide, slide_height_in),
                 "min_font_size": check_min_font_size(slide),
                 "text_density": check_text_density(slide),
+                "font_family": check_font_family(slide),
+                "title_case": check_title_not_uppercase(slide),
             }
         )
 
