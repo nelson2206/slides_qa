@@ -13,19 +13,33 @@
   <meta property="og:title" content="Holmes — El detective de tus decks">
   <meta property="og:description" content="Auditoría MBB de presentaciones, slide por slide. Sube tu .pptx y obtén un checklist de calidad: action titles, so-what, storyline, pie de página y análisis visual.">
   <meta property="og:url" content="https://nelson2206.github.io/slides_qa/">
-  <meta property="og:image" content="https://nelson2206.github.io/slides_qa/og-image.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:image:type" content="image/png">
-  <meta property="og:image:alt" content="Holmes — El detective de tus decks">
   <meta property="og:site_name" content="Holmes">
   <meta property="og:locale" content="es_ES">
+
+  <!-- Square 1200×1200 — listed FIRST because WhatsApp's preview thumbnail
+       picks the first og:image and crops/composes squarely. -->
+  <meta property="og:image" content="https://nelson2206.github.io/slides_qa/og-image-square.png">
+  <meta property="og:image:secure_url" content="https://nelson2206.github.io/slides_qa/og-image-square.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="1200">
+  <meta property="og:image:alt" content="Holmes — El detective de tus decks">
+
+  <!-- Landscape 1200×630 — fallback for Facebook / LinkedIn / Slack / Telegram
+       which render rich cards in landscape. -->
+  <meta property="og:image" content="https://nelson2206.github.io/slides_qa/og-image.png">
+  <meta property="og:image:secure_url" content="https://nelson2206.github.io/slides_qa/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Holmes — El detective de tus decks">
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Holmes — El detective de tus decks">
   <meta name="twitter:description" content="Auditoría MBB de presentaciones, slide por slide.">
   <meta name="twitter:image" content="https://nelson2206.github.io/slides_qa/og-image.png">
+  <meta name="twitter:image:alt" content="Holmes — El detective de tus decks">
 
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="logo.svg">

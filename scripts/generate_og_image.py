@@ -1,7 +1,11 @@
-"""Generate the Open Graph preview image for social shares.
+"""Generate the Open Graph preview images for social shares.
 
-Produces a 1200x630 PNG at static/og-image.png. Run this whenever you change
-brand colors / copy. Uses Pillow which is already a project dependency.
+Produces:
+  - og-image.png        — 1200x630 landscape (standard OG, FB / LinkedIn / Slack / Telegram)
+  - og-image-square.png — 1200x1200 square   (preferred by WhatsApp's preview thumbnail)
+
+Both are rendered at 2× supersampling and then downscaled with Lanczos for
+retina-sharp crispness. Run after any brand/copy change:
 
     python scripts/generate_og_image.py
 """
@@ -12,18 +16,19 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
-W, H = 1200, 630
+# Render at 2x then downscale → crisper text + smoother gradients
+SCALE = 2
+W, H = 1200, 630          # final landscape dimensions
+SQ = 1200                  # final square dimensions
+
 ROOT = Path(__file__).parent.parent
 # Write to both locations:
 #  - static/ → served by Streamlit Cloud at /app/static/og-image.png
 #  - docs/   → served by GitHub Pages (needed for WhatsApp OG previews
 #               because Streamlit puts OG meta in <body>, not <head>)
-OUTPUTS = [
-    ROOT / "static" / "og-image.png",
-    ROOT / "docs" / "og-image.png",
-]
-for p in OUTPUTS:
-    p.parent.mkdir(parents=True, exist_ok=True)
+OUT_DIRS = [ROOT / "static", ROOT / "docs"]
+for d in OUT_DIRS:
+    d.mkdir(parents=True, exist_ok=True)
 
 
 # ----- Brand palette -----
@@ -103,84 +108,193 @@ def _dot_pattern(size: tuple[int, int], spacing: int = 18, dot_r: float = 1.1) -
     return masked
 
 
-def main() -> None:
-    base = _linear_gradient((W, H), BG_TOP, BG_BOTTOM)
-    canvas = base.convert("RGBA")
+def _magnifier(layer: Image.Image, cx: int, cy: int, r: int, stroke: int) -> None:
+    """Draw a Holmes-style magnifier ring + handle on the given RGBA layer."""
+    d = ImageDraw.Draw(layer)
+    # Ring (white, semi-translucent so glows show through)
+    d.ellipse([cx - r, cy - r, cx + r, cy + r],
+              outline=(255, 255, 255, 220), width=stroke)
+    # Inner highlight for depth
+    inner = max(2, int(stroke * 0.5))
+    d.ellipse([cx - r + stroke + 2, cy - r + stroke + 2,
+               cx + r - stroke - 2, cy + r - stroke - 2],
+              outline=(255, 255, 255, 60), width=inner)
+    # Handle (thick rounded line at 45°)
+    hx1, hy1 = cx + int(r * 0.72), cy + int(r * 0.72)
+    hx2, hy2 = cx + int(r * 1.55), cy + int(r * 1.55)
+    d.line([(hx1, hy1), (hx2, hy2)], fill=(255, 255, 255, 220), width=stroke + 2)
+    # Cap on the handle end
+    cap_r = (stroke + 2) // 2
+    d.ellipse([hx2 - cap_r, hy2 - cap_r, hx2 + cap_r, hy2 + cap_r],
+              fill=(255, 255, 255, 220))
 
-    # Atmospheric glows
-    canvas = Image.alpha_composite(
-        canvas,
-        _radial_glow((W, H), int(W * 0.78), int(H * 0.22), 380, 280, ACCENT, 145)
+
+def _build_layout(
+    size: tuple[int, int],
+    *,
+    eyebrow: str,
+    title: str,
+    subtitle: str,
+    chips: list[str],
+    title_size: int,
+    subtitle_size: int,
+    eyebrow_size: int,
+    chip_size: int,
+    padding: int,
+    title_y: int,
+    chip_y: int,
+    magnifier_cx: int,
+    magnifier_cy: int,
+    magnifier_r: int,
+    show_chips: bool = True,
+) -> Image.Image:
+    """Compose one layout (used for both landscape and square)."""
+    w, h = size
+
+    # 1) Base burgundy gradient
+    canvas = _linear_gradient(size, BG_TOP, BG_BOTTOM).convert("RGBA")
+
+    # 2) Atmospheric radial glows (warm pink + purple + cool blue) — richer mix
+    glows = [
+        (int(w * 0.78), int(h * 0.22), int(w * 0.42), int(h * 0.55), ACCENT,        165),
+        (int(w * 0.22), int(h * 0.78), int(w * 0.38), int(h * 0.50), ACCENT_PURPLE, 125),
+        (int(w * 0.50), int(h * 1.05), int(w * 0.55), int(h * 0.50), ACCENT_BLUE,   105),
+        (int(w * 0.08), int(h * 0.10), int(w * 0.18), int(h * 0.25), (255, 200, 130),  60),
+    ]
+    for gx, gy, rx, ry, color, alpha in glows:
+        canvas = Image.alpha_composite(canvas, _radial_glow(size, gx, gy, rx, ry, color, alpha))
+
+    # 3) Dot pattern overlay (denser at 2× for crispness)
+    canvas = Image.alpha_composite(canvas, _dot_pattern(size, spacing=22, dot_r=1.6))
+
+    # 4) Holmes magnifier — large, soft, set into the bottom-right negative space
+    fg = Image.new("RGBA", size, (0, 0, 0, 0))
+    _magnifier(fg, magnifier_cx, magnifier_cy, magnifier_r,
+               stroke=max(6, magnifier_r // 22))
+    # Subtle bloom behind the magnifier
+    bloom = Image.new("RGBA", size, (0, 0, 0, 0))
+    ImageDraw.Draw(bloom).ellipse(
+        [magnifier_cx - magnifier_r - 30, magnifier_cy - magnifier_r - 30,
+         magnifier_cx + magnifier_r + 30, magnifier_cy + magnifier_r + 30],
+        fill=(*ACCENT, 70),
     )
-    canvas = Image.alpha_composite(
-        canvas,
-        _radial_glow((W, H), int(W * 0.22), int(H * 0.78), 320, 240, ACCENT_PURPLE, 110)
+    bloom = bloom.filter(ImageFilter.GaussianBlur(60))
+    canvas = Image.alpha_composite(canvas, bloom)
+    canvas = Image.alpha_composite(canvas, fg)
+
+    # 5) Text layer
+    text_layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    td = ImageDraw.Draw(text_layer)
+
+    # Eyebrow with pink dot
+    eyebrow_font = _load_font(eyebrow_size, bold=True)
+    dot_r = max(5, eyebrow_size // 5)
+    eyebrow_y = padding + eyebrow_size
+    td.ellipse(
+        [padding, eyebrow_y - dot_r, padding + dot_r * 2, eyebrow_y + dot_r],
+        fill=(*ACCENT, 255),
     )
-    canvas = Image.alpha_composite(
-        canvas,
-        _radial_glow((W, H), int(W * 0.50), int(H * 1.05), 460, 280, ACCENT_BLUE, 95)
+    td.text((padding + dot_r * 2 + 14, eyebrow_y - eyebrow_size // 2 - 2),
+            eyebrow, font=eyebrow_font, fill=(*ACCENT, 255))
+
+    # Title — drop shadow first for depth, then crisp white
+    title_font = _load_font(title_size, bold=True)
+    shadow_layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    ImageDraw.Draw(shadow_layer).text(
+        (padding + 4, title_y + 8), title, font=title_font, fill=(0, 0, 0, 150)
     )
-
-    # Subtle dot pattern
-    canvas = Image.alpha_composite(canvas, _dot_pattern((W, H)))
-
-    draw = ImageDraw.Draw(canvas)
-
-    # Eyebrow (with pink dot)
-    eyebrow_font = _load_font(24, bold=True)
-    eyebrow_y = 175
-    eyebrow_x = 100
-    draw.ellipse([eyebrow_x, eyebrow_y + 10, eyebrow_x + 14, eyebrow_y + 24], fill=ACCENT)
-    draw.text((eyebrow_x + 26, eyebrow_y + 4), "EL DETECTIVE DE TUS DECKS",
-              font=eyebrow_font, fill=ACCENT)
-
-    # Title
-    title_font = _load_font(140, bold=True)
-    draw.text((100, 220), "Holmes", font=title_font, fill=WHITE)
+    shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(14))
+    canvas = Image.alpha_composite(canvas, shadow_layer)
+    td.text((padding, title_y), title, font=title_font, fill=(255, 255, 255, 255))
 
     # Subtitle
-    subtitle_font = _load_font(34)
-    draw.text((100, 390), "Auditoría MBB para tus decks de consultoría",
-              font=subtitle_font, fill=(235, 230, 230))
+    subtitle_font = _load_font(subtitle_size)
+    sub_y = title_y + title_size + int(title_size * 0.10)
+    td.text((padding, sub_y), subtitle, font=subtitle_font, fill=(235, 230, 230, 245))
 
-    # Chips at the bottom — draw on a separate RGBA layer so the semi-
-    # transparent background + opaque text composite cleanly.
-    chip_font = _load_font(22, bold=True)
-    chip_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    cd = ImageDraw.Draw(chip_layer)
-    chips = ["Action titles", "So-what", "Storyline", "Pie de página", "Análisis visual"]
-    x = 100
-    y = 478
-    for label in chips:
-        bbox = cd.textbbox((0, 0), label, font=chip_font)
-        text_w = bbox[2] - bbox[0]
-        text_h = bbox[3] - bbox[1]
-        chip_w = text_w + 64
-        chip_h = 46
-        cd.rounded_rectangle(
-            [x, y, x + chip_w, y + chip_h],
-            radius=23,
-            fill=(255, 255, 255, 40),
-            outline=(255, 255, 255, 110),
-            width=1,
-        )
-        # Pink dot
-        dot_cx = x + 22
-        dot_cy = y + chip_h // 2
-        cd.ellipse(
-            [dot_cx - 5, dot_cy - 5, dot_cx + 5, dot_cy + 5],
-            fill=(*ACCENT, 255),
-        )
-        # Label — fully opaque so it composites visibly
-        text_y = y + (chip_h - text_h) // 2 - 3
-        cd.text((x + 38, text_y), label, font=chip_font, fill=(255, 255, 255, 255))
-        x += chip_w + 12
-    canvas = Image.alpha_composite(canvas, chip_layer)
+    # Chips
+    if show_chips:
+        chip_font = _load_font(chip_size, bold=True)
+        cx = padding
+        cy = chip_y
+        chip_h = chip_size * 2 + 8
+        for label in chips:
+            bbox = td.textbbox((0, 0), label, font=chip_font)
+            text_w = bbox[2] - bbox[0]
+            text_h = bbox[3] - bbox[1]
+            chip_w = text_w + chip_size * 3
+            td.rounded_rectangle(
+                [cx, cy, cx + chip_w, cy + chip_h],
+                radius=chip_h // 2,
+                fill=(255, 255, 255, 38),
+                outline=(255, 255, 255, 130),
+                width=2,
+            )
+            # Pink dot inside
+            dx = cx + chip_size + 2
+            dy = cy + chip_h // 2
+            dr = max(4, chip_size // 5)
+            td.ellipse([dx - dr, dy - dr, dx + dr, dy + dr], fill=(*ACCENT, 255))
+            text_y = cy + (chip_h - text_h) // 2 - 3
+            td.text((cx + chip_size + 2 + dr + 10, text_y), label,
+                    font=chip_font, fill=(255, 255, 255, 255))
+            cx += chip_w + chip_size // 2
 
-    rgb = canvas.convert("RGB")
-    for out in OUTPUTS:
-        rgb.save(out, "PNG", optimize=True)
-        print(f"Saved: {out}  ({out.stat().st_size // 1024} KB)")
+    canvas = Image.alpha_composite(canvas, text_layer)
+    return canvas
+
+
+def _save(img: Image.Image, target_size: tuple[int, int], filenames: list[str]) -> None:
+    """Downscale (Lanczos) to final size and save to every output dir."""
+    final = img.resize(target_size, Image.Resampling.LANCZOS)
+    rgb = final.convert("RGB")
+    for d in OUT_DIRS:
+        for name in filenames:
+            out = d / name
+            rgb.save(out, "PNG", optimize=True)
+            print(f"Saved: {out}  ({out.stat().st_size // 1024} KB)")
+
+
+def main() -> None:
+    # ---- LANDSCAPE 1200×630 (rendered at 2400×1260) — standard OG ----
+    landscape = _build_layout(
+        (W * SCALE, H * SCALE),
+        eyebrow="EL DETECTIVE DE TUS DECKS",
+        title="Holmes",
+        subtitle="Auditoría MBB para tus decks de consultoría",
+        chips=["Action titles", "So-what", "Storyline", "Pie de página", "Análisis visual"],
+        title_size=260,
+        subtitle_size=64,
+        eyebrow_size=44,
+        chip_size=40,
+        padding=100 * SCALE,
+        title_y=400,
+        chip_y=900,
+        magnifier_cx=int(W * SCALE * 0.82),
+        magnifier_cy=int(H * SCALE * 0.50),
+        magnifier_r=int(H * SCALE * 0.30),
+    )
+    _save(landscape, (W, H), ["og-image.png"])
+
+    # ---- SQUARE 1200×1200 (rendered at 2400×2400) — WhatsApp-friendly ----
+    square = _build_layout(
+        (SQ * SCALE, SQ * SCALE),
+        eyebrow="EL DETECTIVE DE TUS DECKS",
+        title="Holmes",
+        subtitle="Auditoría MBB para tus decks de consultoría",
+        chips=["Action titles", "So-what", "Storyline"],
+        title_size=320,
+        subtitle_size=70,
+        eyebrow_size=48,
+        chip_size=46,
+        padding=120 * SCALE,
+        title_y=900,
+        chip_y=1900,
+        magnifier_cx=int(SQ * SCALE * 0.80),
+        magnifier_cy=int(SQ * SCALE * 0.28),
+        magnifier_r=int(SQ * SCALE * 0.18),
+    )
+    _save(square, (SQ, SQ), ["og-image-square.png"])
 
 
 if __name__ == "__main__":
