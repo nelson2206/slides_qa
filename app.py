@@ -509,6 +509,10 @@ except Exception as e:
 if st.session_state.get("qa_file_hash") and st.session_state["qa_file_hash"] != file_hash:
     for k in ("qa_result", "qa_est"):
         st.session_state.pop(k, None)
+    # Also clear any post-run rerun markers from previous files so a fresh
+    # analysis on the new deck triggers the Acciones-Holmes-refresh rerun.
+    for k in [k for k in st.session_state.keys() if k.startswith("_post_run_rerun__")]:
+        st.session_state.pop(k, None)
 st.session_state["qa_file_hash"] = file_hash
 
 file_name = uploaded.name
@@ -881,6 +885,16 @@ if run_button:
     st.session_state["qa_result"] = result_obj
     st.session_state["qa_est"] = est
     st.session_state["qa_thumbs"] = thumbs
+
+    # Force a rerun so the Acciones Holmes tab (which renders ABOVE the audit
+    # flow and read session_state at the TOP of the script) picks up the new
+    # result on its next render. Without this, Acciones stays stuck on its
+    # empty state until the user triggers some other interaction. Gated so
+    # we only rerun once per analysis (not on every script execution).
+    _rerun_marker = f"_post_run_rerun__{file_hash}"
+    if not st.session_state.get(_rerun_marker):
+        st.session_state[_rerun_marker] = True
+        st.rerun()
 
 else:
     try:
