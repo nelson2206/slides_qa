@@ -495,13 +495,11 @@ if _file_size_mb > _MAX_UPLOAD_MB:
     st.stop()
 
 # Cache the raw .pptx bytes by hash so the exporter / fixer / comparator can
-# read the original deck on later reruns without re-uploading. Skip caching
-# for files > 25 MB to keep session_state lean (Acciones Holmes will ask the
-# user to re-upload if needed).
-if _file_size_mb <= 25:
-    st.session_state[f"pptx_bytes__{file_hash}"] = _file_bytes
-else:
-    st.session_state.pop(f"pptx_bytes__{file_hash}", None)
+# read the original deck on later reruns without re-uploading. We already
+# accepted these bytes through the _MAX_UPLOAD_MB gate above, so caching
+# them in session_state costs no extra peak memory — and skipping the cache
+# was breaking Acciones Holmes on decks between 25 MB and the upload cap.
+st.session_state[f"pptx_bytes__{file_hash}"] = _file_bytes
 st.session_state[f"pptx_filename__{file_hash}"] = uploaded.name
 
 with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
