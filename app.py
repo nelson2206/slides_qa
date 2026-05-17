@@ -47,7 +47,7 @@ styles.inject()
 # lenient and DO pick up body-level meta. The static og-image.png lives at
 # /app/static/og-image.png (Streamlit Cloud auto-serves the static/ folder).
 # ---------------------------------------------------------------------------
-_OG_IMAGE_URL = "https://slides-qa.streamlit.app/app/static/og-image.png"
+_OG_IMAGE_URL = "https://nelson2206.github.io/slides_qa/og-image.png"
 st.markdown(
     f'''
 <meta property="og:title" content="Holmes — El detective de tus decks">
