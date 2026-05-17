@@ -2294,7 +2294,7 @@ def best_practices_html() -> str:
         '<div class="qa-bp-header">'
         '<div class="qa-bp-eyebrow">Holmes evalúa contra este estándar</div>'
         '<h2 class="qa-bp-title">Buenas prácticas para decks de consultoría</h2>'
-        '<p class="qa-bp-sub">Pyramid Principle, SCQA, Minto — el estándar que aplican McKinsey, Bain, BCG y Minsait. Holmes audita cada slide contra esta lista.</p>'
+        '<p class="qa-bp-sub">MECE, Pyramid Principle, SCQA, Minto — el estándar que todo Minsaiter debe conocer. Holmes audita cada slide contra esta lista.</p>'
         '</div>'
         f'{"".join(blocks)}'
         '</div>'
