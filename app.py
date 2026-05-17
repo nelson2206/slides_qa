@@ -118,30 +118,45 @@ def _render_acciones_panel(
         if not pptx_bytes:
             st.warning("No tengo los bytes del deck cacheados — subí el archivo de nuevo.")
         else:
+            # Cache the generated annotated bytes in session_state so the
+            # download_button survives the rerun that st.download_button itself
+            # triggers when clicked. Otherwise the button click reruns the
+            # script, st.button("Generar...") returns False (no new click), the
+            # whole if-block is skipped, the locally-scoped `annotated_bytes`
+            # is lost, and the download UI vanishes — looking like the app
+            # "reset" from the user's perspective.
+            _annot_cache_key = f"annotated_bytes__{file_hash}"
+            _annot_err_key = f"annotated_err__{file_hash}"
+
             if st.button("Generar review anotado", type="primary", key=f"gen_review_{key_prefix}"):
                 with st.spinner("Anotando deck…"):
                     src_path = _write_temp_pptx(pptx_bytes)
                     try:
-                        annotated_bytes = export_annotated_pptx(str(src_path), result)
-                        _export_error = None
+                        st.session_state[_annot_cache_key] = export_annotated_pptx(
+                            str(src_path), result,
+                        )
+                        st.session_state.pop(_annot_err_key, None)
                     except Exception as _e:  # noqa: BLE001
-                        annotated_bytes = None
-                        _export_error = str(_e)
+                        st.session_state.pop(_annot_cache_key, None)
+                        st.session_state[_annot_err_key] = str(_e)
                     finally:
                         try: src_path.unlink()
                         except OSError: pass
-                if _export_error:
-                    st.error(f"No se pudo generar el review anotado: {_export_error}")
-                else:
-                    out_name = file_name.replace(".pptx", "") + "_Holmes_review.pptx"
-                    st.success(f"Review listo · {len(annotated_bytes) // 1024} KB")
-                    st.download_button(
-                        "⬇️ Descargar .pptx anotado",
-                        data=annotated_bytes,
-                        file_name=out_name,
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                        key=f"dl_review_{key_prefix}",
-                    )
+
+            _annot_bytes = st.session_state.get(_annot_cache_key)
+            _annot_err = st.session_state.get(_annot_err_key)
+            if _annot_err:
+                st.error(f"No se pudo generar el review anotado: {_annot_err}")
+            elif _annot_bytes:
+                out_name = file_name.replace(".pptx", "") + "_Holmes_review.pptx"
+                st.success(f"Review listo · {len(_annot_bytes) // 1024} KB")
+                st.download_button(
+                    "⬇️ Descargar .pptx anotado",
+                    data=_annot_bytes,
+                    file_name=out_name,
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    key=f"dl_review_{key_prefix}",
+                )
 
     # ----- 2) Aplicar fixes -----
     with subtabs[1]:
@@ -210,6 +225,13 @@ def _render_acciones_panel(
                     if key in selected_keys:
                         to_apply.append(f)
 
+            # Same rerun-survival pattern as the annotated review above: cache
+            # the fixed bytes + report in session_state so the download_button
+            # survives the rerun st.download_button itself triggers on click.
+            _fix_cache_key = f"fixed_bytes__{file_hash}"
+            _fix_report_key = f"fixed_report__{file_hash}"
+            _fix_err_key = f"fixed_err__{file_hash}"
+
             if st.button(
                 f"Aplicar {len(to_apply)} fix(es) y descargar",
                 type="primary",
@@ -219,37 +241,42 @@ def _render_acciones_panel(
                 with st.spinner("Aplicando fixes…"):
                     src_path = _write_temp_pptx(pptx_bytes)
                     try:
-                        fixed_bytes, report = apply_quick_fixes(
-                            str(src_path), result, to_apply,
-                        )
-                        _apply_error = None
+                        _fb, _rp = apply_quick_fixes(str(src_path), result, to_apply)
+                        st.session_state[_fix_cache_key] = _fb
+                        st.session_state[_fix_report_key] = _rp
+                        st.session_state.pop(_fix_err_key, None)
                     except Exception as _e:  # noqa: BLE001
-                        fixed_bytes, report = None, None
-                        _apply_error = str(_e)
+                        st.session_state.pop(_fix_cache_key, None)
+                        st.session_state.pop(_fix_report_key, None)
+                        st.session_state[_fix_err_key] = str(_e)
                     finally:
                         try: src_path.unlink()
                         except OSError: pass
-                if _apply_error:
-                    st.error(f"No se pudieron aplicar los fixes: {_apply_error}")
-                else:
-                    out_name = file_name.replace(".pptx", "") + "_Holmes_fixed.pptx"
-                    counts = report["counts"]
-                    if counts["failed"]:
-                        st.warning(
-                            f"{counts['applied']}/{counts['total_requested']} aplicados · "
-                            f"{counts['failed']} fallaron."
-                        )
-                        for f in report["failed"][:10]:
-                            st.caption(f"Slide {f['slide_number']} · {f['id']} · {f['reason']}")
-                    else:
-                        st.success(f"{counts['applied']} fixes aplicados.")
-                    st.download_button(
-                        "⬇️ Descargar .pptx con fixes aplicados",
-                        data=fixed_bytes,
-                        file_name=out_name,
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                        key=f"dl_fixed_{key_prefix}",
+
+            _fixed_bytes = st.session_state.get(_fix_cache_key)
+            _fixed_report = st.session_state.get(_fix_report_key)
+            _fixed_err = st.session_state.get(_fix_err_key)
+            if _fixed_err:
+                st.error(f"No se pudieron aplicar los fixes: {_fixed_err}")
+            elif _fixed_bytes and _fixed_report:
+                out_name = file_name.replace(".pptx", "") + "_Holmes_fixed.pptx"
+                counts = _fixed_report["counts"]
+                if counts["failed"]:
+                    st.warning(
+                        f"{counts['applied']}/{counts['total_requested']} aplicados · "
+                        f"{counts['failed']} fallaron."
                     )
+                    for f in _fixed_report["failed"][:10]:
+                        st.caption(f"Slide {f['slide_number']} · {f['id']} · {f['reason']}")
+                else:
+                    st.success(f"{counts['applied']} fixes aplicados.")
+                st.download_button(
+                    "⬇️ Descargar .pptx con fixes aplicados",
+                    data=_fixed_bytes,
+                    file_name=out_name,
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    key=f"dl_fixed_{key_prefix}",
+                )
 
     # ----- 3) Comparar versiones -----
     with subtabs[2]:
