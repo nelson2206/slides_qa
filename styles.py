@@ -1939,6 +1939,232 @@ footer { visibility: hidden; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ──────────────────────────────────────────────
+   MOBILE — iPhone-class viewports (≤ 480px)
+   Single comprehensive block placed at the end so it overrides anything
+   above. The Streamlit app is embedded full-bleed in mobile Safari; the
+   default desktop spacing + fixed widths used to push slide cards and
+   tabs past the viewport edge. These rules collapse / wrap / shrink the
+   biggest offenders.
+   ────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  /* Tighter outer page padding */
+  [data-testid="stMainBlockContainer"],
+  .stMainBlockContainer {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    padding-top: 0.75rem !important;
+  }
+
+  /* Tab list — allow wrap so all 3 pills fit; compact padding */
+  .stTabs [data-baseweb="tab-list"] {
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    padding: 4px !important;
+    gap: 2px !important;
+  }
+  .stTabs [data-baseweb="tab"] {
+    padding: 6px 12px !important;
+    flex: 1 1 auto !important;
+  }
+  .stTabs [data-baseweb="tab"] p {
+    font-size: 0.78rem !important;
+  }
+
+  /* Hero — much tighter padding + smaller type so it doesn't dominate */
+  .qa-hero {
+    padding: 28px 22px 30px !important;
+    min-height: auto !important;
+    border-radius: 16px !important;
+  }
+  .qa-hero h1 {
+    font-size: 2rem !important;
+    margin-bottom: 12px !important;
+  }
+  .qa-hero p {
+    font-size: 0.92rem !important;
+    line-height: 1.5 !important;
+  }
+  .qa-hero-eyebrow {
+    font-size: 0.66rem !important;
+    margin-bottom: 12px !important;
+  }
+  .qa-hero-chips {
+    margin-top: 14px !important;
+    gap: 6px !important;
+  }
+  .qa-hero-chip {
+    font-size: 0.68rem !important;
+    padding: 4px 9px !important;
+  }
+
+  /* Metric cards — stack vertically on narrow screens */
+  [data-testid="stHorizontalBlock"] {
+    flex-wrap: wrap !important;
+  }
+  [data-testid="stMetric"] {
+    padding: 10px 14px 12px !important;
+  }
+  [data-testid="stMetricValue"] {
+    font-size: 1.4rem !important;
+  }
+
+  /* File uploader — less padding */
+  [data-testid="stFileUploader"] section {
+    padding: 14px 16px !important;
+  }
+
+  /* Summary cards row — collapse to single column already covered, but
+     ensure no min-width forces overflow */
+  .qa-summary-row {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .qa-summary-card {
+    padding: 12px 14px !important;
+  }
+  .qa-summary-card-value {
+    font-size: 1.55rem !important;
+  }
+
+  /* Slide cards — stack thumb above checks, thumb full-width */
+  .qa-slide-body {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  .qa-slide-thumb {
+    width: 100% !important;
+    max-width: 320px;
+  }
+  .qa-slide-thumb img {
+    width: 100% !important;
+    height: auto !important;
+  }
+  .qa-slide-header {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .qa-slide-title {
+    flex-basis: 100% !important;
+    min-width: 0 !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+  }
+  .qa-slide-card {
+    padding: 14px 16px !important;
+    border-radius: 12px !important;
+  }
+
+  /* Checklist items inside slide cards */
+  .qa-checklist-item {
+    padding: 10px 0 !important;
+    gap: 10px !important;
+  }
+  .qa-checklist-icon {
+    flex: 0 0 22px !important;
+    height: 22px !important;
+  }
+
+  /* Buenas prácticas — section padding tightens, header stacks */
+  .qa-bp-wrapper {
+    padding: 0.6rem 0 1.6rem 0 !important;
+  }
+  .qa-bp-title {
+    font-size: 1.7rem !important;
+  }
+  .qa-bp-section {
+    padding: 22px 18px !important;
+    border-radius: 14px !important;
+  }
+  .qa-bp-section-head {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    padding-bottom: 14px !important;
+    margin-bottom: 14px !important;
+  }
+  .qa-bp-section-num {
+    font-size: 1.2rem !important;
+    min-width: auto !important;
+  }
+  .qa-bp-section-name {
+    font-size: 1.1rem !important;
+  }
+  .qa-bp-item {
+    padding: 12px 0 !important;
+    gap: 12px !important;
+  }
+  .qa-bp-item-title {
+    font-size: 0.94rem !important;
+  }
+  .qa-bp-item-detail {
+    font-size: 0.85rem !important;
+  }
+
+  /* Live progress dashboard — stack the percentage and meta */
+  .qa-prog {
+    padding: 14px 16px !important;
+  }
+  .qa-prog-head {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+  .qa-prog-pct {
+    font-size: 2.2rem !important;
+    min-width: auto !important;
+  }
+
+  /* Overview panel — single column */
+  .qa-overview {
+    grid-template-columns: 1fr !important;
+    padding: 16px 18px !important;
+  }
+
+  /* Cost panel — tighter */
+  .qa-cost-panel {
+    padding: 14px 16px !important;
+  }
+  .qa-cost-panel-value {
+    font-size: 1.4rem !important;
+  }
+
+  /* Floating thumbnail navigator — make it scroll horizontally and use less
+     vertical space. The dock magnification widths are luxurious on desktop
+     but break the row on mobile. */
+  .qa-nav {
+    width: calc(100vw - 1rem) !important;
+    padding: 8px 10px !important;
+  }
+  .qa-nav-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
+    margin-bottom: 6px !important;
+  }
+  .qa-nav-legend {
+    font-size: 0.6rem !important;
+    flex-wrap: wrap !important;
+  }
+  .qa-nav-track {
+    overflow-x: auto !important;
+  }
+  .qa-nav-block:hover {
+    flex-grow: 1 !important;
+    min-width: 50px !important;
+    height: 42px !important;
+  }
+
+  /* Skipped card banner */
+  .qa-skipped-banner {
+    padding: 12px 14px !important;
+  }
+
+  /* General: prevent any wide element from pushing the viewport */
+  body, html {
+    overflow-x: hidden !important;
+  }
+}
 </style>
 """
 
