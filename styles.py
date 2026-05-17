@@ -743,6 +743,79 @@ hr {
   0%, 100% { opacity: 0.5; }
   50%      { opacity: 1; }
 }
+
+/* ───── Holmes 'checking…' rolodex ─────
+   Single-line row with prefix + vertically-cycling label. Pure CSS — no
+   coordination with Python's actual progress is needed since the checks
+   run too fast (<200ms per slide) to instrument individually. The cycler
+   sells the feel of Holmes working through his checklist. */
+.qa-prog-cycler-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  color: var(--text);
+  letter-spacing: -0.005em;
+  font-weight: 500;
+  padding: 4px 0;
+  margin-top: 2px;
+}
+.qa-prog-cycler-prefix {
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.qa-prog-cycler {
+  display: inline-block;
+  position: relative;
+  height: 1.4em;
+  line-height: 1.4em;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  vertical-align: middle;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+}
+.qa-prog-cycler-list {
+  display: block;
+  animation: qa-cycler-roll 14s steps(14) infinite;
+}
+.qa-prog-cycler-item {
+  display: block;
+  height: 1.4em;
+  line-height: 1.4em;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: -0.008em;
+}
+@keyframes qa-cycler-roll {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-19.6em); }
+}
+/* 14 items * 1.4em = 19.6em — list scrolls one full cycle then repeats */
+
+.qa-prog-cycler-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.qa-prog-cycler-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 100px;
+  background: var(--accent);
+  opacity: 0.3;
+  animation: qa-cycler-dots 1.4s ease-in-out infinite;
+}
+.qa-prog-cycler-dots span:nth-child(2) { animation-delay: 0.2s; }
+.qa-prog-cycler-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes qa-cycler-dots {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.85); }
+  40%           { opacity: 1;   transform: scale(1.15); }
+}
+
 .qa-prog-chips {
   display: flex;
   gap: 8px;
@@ -1414,6 +1487,45 @@ body.qa-nav-visible .qa-nav {
   color: var(--text);
   letter-spacing: -0.005em;
   font-weight: 500;
+}
+
+/* All-green banner — shown when a slide has zero failing checks. Stays soft
+   (mostly white) so a deck full of approved slides doesn't feel oppressive. */
+.qa-slide-allgreen {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: linear-gradient(178deg, var(--status-ok-bg) 0%, white 100%);
+  border: 1px solid rgba(4,120,87,0.18);
+  border-radius: 10px;
+}
+.qa-slide-allgreen-icon {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--status-ok);
+  color: white;
+  border-radius: 100px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(4,120,87,0.25);
+}
+.qa-slide-allgreen-body { flex: 1; min-width: 0; }
+.qa-slide-allgreen-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--status-ok);
+  letter-spacing: -0.012em;
+}
+.qa-slide-allgreen-sub {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.45;
 }
 
 /* ──────────────────────────────────────────────
@@ -2386,6 +2498,39 @@ def live_progress_html(
     pct_display = "—" if indeterminate else str(pct_int)
     pct_sym = "" if indeterminate else '<span class="qa-prog-pct-sym">%</span>'
 
+    # Cycling 'checking…' rolodex. Pure CSS — labels scroll vertically every
+    # ~700 ms while the run is in progress. Hidden when done so the green bar
+    # has the stage to itself.
+    cycler_html = ""
+    if not done_status:
+        _checks = [
+            "action title",
+            "so-what por slide",
+            "causa → consecuencia",
+            "longitud de párrafos",
+            "tamaño de fuente",
+            "fuente brand (ForFuture Sans)",
+            "casing del título",
+            "pie de página",
+            "alineación del footer",
+            "densidad de texto",
+            "rol de la slide",
+            "storyline cross-slide",
+            "consistencia del deck",
+            "análisis visual",
+        ]
+        items = "".join(
+            f'<span class="qa-prog-cycler-item">{_escape_html(c)}</span>'
+            for c in _checks
+        )
+        cycler_html = (
+            '<div class="qa-prog-cycler-row">'
+            '<span class="qa-prog-cycler-prefix">🔎 Holmes revisando</span>'
+            f'<span class="qa-prog-cycler"><span class="qa-prog-cycler-list">{items}</span></span>'
+            '<span class="qa-prog-cycler-dots"><span></span><span></span><span></span></span>'
+            '</div>'
+        )
+
     return (
         '<div class="qa-prog">'
         '<div class="qa-prog-head">'
@@ -2399,6 +2544,7 @@ def live_progress_html(
         '<div class="qa-prog-bar-track">'
         f'<div class="{bar_class}" style="{bar_style}"></div>'
         '</div>'
+        f'{cycler_html}'
         f'{counts_html}'
         f'{phase_html}'
         '</div>'
@@ -2998,117 +3144,119 @@ def slide_card_html(slide: dict, thumb_bytes: bytes | None = None) -> str:
             '</div>'
         )
 
-    # Checklist rows
+    # Checklist rows — ONLY items that need improvement. OK checks are hidden
+    # to reduce noise; the user wants actionable feedback, not a green roll-call.
     rows: list[str] = []
 
-    # Action title
+    # Action title (only if explicitly NOT an action title)
     at = slide["action_title"]
-    icon, variant = _icon_for(at.get("is_action_title"))
-    rows.append(_checklist_row_html(
-        icon, variant, "Action title",
-        at.get("notes", "—"),
-        current=at.get("current_title") if at.get("is_action_title") is not True else None,
-        suggestion=at.get("suggestion"),
-    ))
+    if at.get("is_action_title") is False:
+        rows.append(_checklist_row_html(
+            "✗", "fail", "Action title",
+            at.get("notes", "—"),
+            current=at.get("current_title"),
+            suggestion=at.get("suggestion"),
+        ))
 
-    # So-what
+    # So-what (only if explicitly missing)
     sw = slide["so_what"]
-    icon, variant = _icon_for(sw.get("present"))
-    rows.append(_checklist_row_html(
-        icon, variant, "So-what",
-        sw.get("notes", "—"),
-        suggestion=sw.get("suggestion"),
-    ))
+    if sw.get("present") is False:
+        rows.append(_checklist_row_html(
+            "✗", "fail", "So-what",
+            sw.get("notes", "—"),
+            suggestion=sw.get("suggestion"),
+        ))
 
-    # Causa → consecuencia
+    # Causa → consecuencia (only if inverted)
     cc = slide["cause_consequence"]
-    icon, variant = _icon_for(cc.get("ok"))
-    rows.append(_checklist_row_html(
-        icon, variant, "Causa → consecuencia",
-        cc.get("notes", "—"),
-    ))
+    if cc.get("ok") is False:
+        rows.append(_checklist_row_html(
+            "✗", "fail", "Causa → consecuencia",
+            cc.get("notes", "—"),
+        ))
 
-    # Longitud de párrafos
+    # Longitud de párrafos (only if there are long paragraphs)
     tl = slide["text_length"]
-    icon, variant = _icon_for(tl.get("ok"))
-    status_text = tl.get("notes", "—")
-    if tl.get("long_paragraphs"):
-        # Show first long paragraph snippet inline
-        first = tl["long_paragraphs"][0]
-        more = (
-            f" (+{len(tl['long_paragraphs']) - 1} más)"
-            if len(tl["long_paragraphs"]) > 1 else ""
-        )
-        status_text = status_text + " · " + first + more
-    rows.append(_checklist_row_html(
-        icon, variant, "Longitud de párrafos",
-        status_text,
-        suggestion=tl.get("suggestion"),
-    ))
+    if tl.get("ok") is False:
+        status_text = tl.get("notes", "—")
+        if tl.get("long_paragraphs"):
+            first = tl["long_paragraphs"][0]
+            more = (
+                f" (+{len(tl['long_paragraphs']) - 1} más)"
+                if len(tl["long_paragraphs"]) > 1 else ""
+            )
+            status_text = status_text + " · " + first + more
+        rows.append(_checklist_row_html(
+            "✗", "fail", "Longitud de párrafos",
+            status_text,
+            suggestion=tl.get("suggestion"),
+        ))
 
-    # Pie de página
+    # Pie de página (only when footer is missing/wrong/misaligned, NOT exempt)
     footer = slide["footer"]
     exempt = footer.get("exempt")
     align_outlier = footer.get("alignment_outlier")
-    if not footer.get("present"):
-        if exempt:
-            f_icon, f_variant = "—", "na"
-            f_status = f"No aplica · slide de tipo {role}"
-        else:
+    footer_has_issue = (
+        not exempt
+        and (
+            (not footer.get("present"))
+            or footer.get("matches_canonical") is False
+            or footer.get("aligned") is False
+        )
+    )
+    if footer_has_issue:
+        if not footer.get("present"):
             f_icon, f_variant = "—", "na"
             f_status = "Sin pie de página"
-    elif footer.get("matches_canonical") is False:
-        f_icon, f_variant = "✗", "fail"
-        f_status = "Texto distinto al canónico"
-    elif footer.get("aligned") is False and align_outlier:
-        f_icon, f_variant = "✗", "fail"
-        f_status = "Posición fuera del canónico del deck · " + " / ".join(
-            align_outlier.get("issues", [])
-        )
-    elif footer.get("aligned") is False:
-        f_icon, f_variant = "✗", "fail"
-        f_status = "Posición fuera del canónico del deck"
-    else:
-        f_icon, f_variant = "✓", "ok"
-        f_status = "Canónico OK"
-    canonical = footer.get("canonical_text")
-    footer_suggestion = None
-    if not footer.get("present") and canonical and not exempt:
-        footer_suggestion = f'Agregar el footer canónico: "{canonical}"'
-    elif footer.get("matches_canonical") is False and canonical:
-        footer_suggestion = f'Reemplazar por el canónico: "{canonical}"'
-    elif align_outlier:
-        c_top = align_outlier.get("canonical_top_in")
-        c_left = align_outlier.get("canonical_left_in")
-        target = []
-        if c_top is not None:
-            target.append(f"top {c_top:.2f}″")
-        if c_left is not None:
-            target.append(f"left {c_left:.2f}″")
-        coords = " · ".join(target) if target else "la posición canónica"
-        footer_suggestion = (
-            f"Mové el footer a la esquina inferior izquierda — {coords} "
-            "(mediana de los pies del deck) o copiá el footer de un slide "
-            "ya alineado."
-        )
-    rows.append(_checklist_row_html(
-        f_icon, f_variant, "Pie de página",
-        f_status,
-        current=footer.get("current_footer") if footer.get("present") else None,
-        suggestion=footer_suggestion,
-    ))
-
-    # Tamaño mínimo de fuente
-    mfs = slide.get("min_font_size") or {}
-    if mfs.get("applicable"):
-        icon, variant = _icon_for(mfs.get("ok"))
+        elif footer.get("matches_canonical") is False:
+            f_icon, f_variant = "✗", "fail"
+            f_status = "Texto distinto al canónico"
+        elif footer.get("aligned") is False and align_outlier:
+            f_icon, f_variant = "✗", "fail"
+            f_status = "Posición fuera del canónico del deck · " + " / ".join(
+                align_outlier.get("issues", [])
+            )
+        else:
+            f_icon, f_variant = "✗", "fail"
+            f_status = "Posición fuera del canónico del deck"
+        canonical = footer.get("canonical_text")
+        footer_suggestion = None
+        if not footer.get("present") and canonical:
+            footer_suggestion = f'Agregar el footer canónico: "{canonical}"'
+        elif footer.get("matches_canonical") is False and canonical:
+            footer_suggestion = f'Reemplazar por el canónico: "{canonical}"'
+        elif align_outlier:
+            c_top = align_outlier.get("canonical_top_in")
+            c_left = align_outlier.get("canonical_left_in")
+            target = []
+            if c_top is not None:
+                target.append(f"top {c_top:.2f}″")
+            if c_left is not None:
+                target.append(f"left {c_left:.2f}″")
+            coords = " · ".join(target) if target else "la posición canónica"
+            footer_suggestion = (
+                f"Mové el footer a la esquina inferior izquierda — {coords} "
+                "(mediana de los pies del deck) o copiá el footer de un slide "
+                "ya alineado."
+            )
         rows.append(_checklist_row_html(
-            icon, variant, f"Tamaño mínimo de fuente (≥{int(mfs.get('min_required_pt', 9))}pt)",
+            f_icon, f_variant, "Pie de página",
+            f_status,
+            current=footer.get("current_footer") if footer.get("present") else None,
+            suggestion=footer_suggestion,
+        ))
+
+    # Tamaño mínimo de fuente (only if violation)
+    mfs = slide.get("min_font_size") or {}
+    if mfs.get("applicable") and mfs.get("ok") is False:
+        rows.append(_checklist_row_html(
+            "✗", "fail",
+            f"Tamaño mínimo de fuente (≥{int(mfs.get('min_required_pt', 9))}pt)",
             mfs.get("notes", "—"),
             suggestion=mfs.get("suggestion"),
         ))
 
-    # Densidad de texto — slide muy cargada
+    # Densidad de texto
     td = slide.get("text_density") or {}
     if td.get("applicable") and not td.get("ok"):
         rows.append(_checklist_row_html(
@@ -3117,17 +3265,16 @@ def slide_card_html(slide: dict, thumb_bytes: bytes | None = None) -> str:
             suggestion=td.get("suggestion"),
         ))
 
-    # Fuente brand (ForFuture Sans)
+    # Fuente brand (ForFuture Sans) — only if off-brand
     ff = slide.get("font_family") or {}
-    if ff.get("applicable"):
-        icon, variant = _icon_for(ff.get("ok"))
+    if ff.get("applicable") and ff.get("ok") is False:
         rows.append(_checklist_row_html(
-            icon, variant, "Fuente brand (ForFuture Sans)",
+            "✗", "fail", "Fuente brand (ForFuture Sans)",
             ff.get("notes", "—"),
             suggestion=ff.get("suggestion"),
         ))
 
-    # Casing — flag titles in ALL CAPS or Title Case (only sentence case OK)
+    # Casing — flag titles in ALL CAPS or Title Case
     tc = slide.get("title_case") or {}
     if tc.get("applicable") and not tc.get("ok"):
         violation = tc.get("case_violation")
@@ -3143,21 +3290,20 @@ def slide_card_html(slide: dict, thumb_bytes: bytes | None = None) -> str:
             suggestion=tc.get("suggestion"),
         ))
 
-    # Visual (if present)
+    # Visual (only failing aspects)
     if slide.get("visual"):
         v = slide["visual"]
         vq = v.get("visual_quality", {})
-        icon, variant = _icon_for(vq.get("ok"))
-        rows.append(_checklist_row_html(
-            icon, variant, "Análisis visual",
-            vq.get("notes", "—"),
-            suggestion=vq.get("suggestion"),
-        ))
-        cr = v.get("chart_readability", {})
-        if cr.get("present"):
-            icon, variant = _icon_for(cr.get("ok"))
+        if vq.get("ok") is False:
             rows.append(_checklist_row_html(
-                icon, variant, "Chart readability",
+                "✗", "fail", "Análisis visual",
+                vq.get("notes", "—"),
+                suggestion=vq.get("suggestion"),
+            ))
+        cr = v.get("chart_readability", {})
+        if cr.get("present") and cr.get("ok") is False:
+            rows.append(_checklist_row_html(
+                "✗", "fail", "Chart readability",
                 cr.get("notes", "—"),
                 suggestion=cr.get("suggestion"),
             ))
@@ -3170,7 +3316,20 @@ def slide_card_html(slide: dict, thumb_bytes: bytes | None = None) -> str:
                 issues_text,
             ))
 
-    checks_html = '<div class="qa-checklist">' + "".join(rows) + '</div>'
+    # If nothing failed, replace the checklist with a clean "all green" banner
+    # so the user immediately knows the slide is approved.
+    if rows:
+        checks_html = '<div class="qa-checklist">' + "".join(rows) + '</div>'
+    else:
+        checks_html = (
+            '<div class="qa-slide-allgreen">'
+            '<span class="qa-slide-allgreen-icon">✓</span>'
+            '<div class="qa-slide-allgreen-body">'
+            '<div class="qa-slide-allgreen-title">Sin issues — slide aprobada por Holmes</div>'
+            '<div class="qa-slide-allgreen-sub">Todos los checks pasaron (action title, so-what, footer, fuente, casing, densidad…).</div>'
+            '</div>'
+            '</div>'
+        )
 
     return (
         f'<div class="qa-slide-card sev-{sev}" id="qa-slide-{n}">'
