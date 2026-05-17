@@ -88,6 +88,23 @@ CSS = """
   .stMainBlockContainer { padding-top: 1rem !important; }
 }
 
+/* Hide Streamlit's default top header/toolbar (hamburger menu, "Made with
+   Streamlit" status, etc.) — for end-user-facing branding we don't want
+   those affordances. */
+[data-testid="stHeader"],
+header[data-testid="stHeader"],
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
+#MainMenu,
+footer {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+}
+/* Reclaim the space the hidden header would have occupied. */
+.stApp { padding-top: 0 !important; }
+
 /* ──────────────────────────────────────────────
    Typography — target body/heading containers
    only. NEVER use `*` here, it breaks icons.
@@ -2176,7 +2193,7 @@ def best_practices_html() -> str:
             "label": "05 · Layout y consistencia",
             "intro": "El detalle visual importa. Inconsistencias gritan junior.",
             "items": [
-                ("Pie de página consistente", "Mismo texto, misma posición (top/left), misma altura en todas las slides de contenido."),
+                ("Pie de página en la esquina inferior izquierda", "Convención de la consultora: footer alineado a la esquina inferior-izquierda. Mismo texto, misma posición (top + left), misma altura en todas las slides de contenido."),
                 ("Mayúsculas consistentes", "Todo title case, todo sentence case, o todo UPPER — no mezcla."),
                 ("Jerarquía tipográfica clara", "Title, subtitle, body, caption — tamaños y pesos diferenciados pero consistentes."),
                 ("Una sola familia tipográfica", "Máximo dos: una para titles, otra para body. Sin más."),
@@ -2794,8 +2811,9 @@ def slide_card_html(slide: dict, thumb_bytes: bytes | None = None) -> str:
             target.append(f"left {c_left:.2f}″")
         coords = " · ".join(target) if target else "la posición canónica"
         footer_suggestion = (
-            f"Mové el footer a {coords} (mediana de los pies del deck) "
-            "o copiá el footer de un slide ya alineado."
+            f"Mové el footer a la esquina inferior izquierda — {coords} "
+            "(mediana de los pies del deck) o copiá el footer de un slide "
+            "ya alineado."
         )
     rows.append(_checklist_row_html(
         f_icon, f_variant, "Pie de página",
