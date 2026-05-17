@@ -2222,20 +2222,12 @@ def section_label(text: str) -> None:
 def _inject_html_iframe(html: str, height: int = 0) -> None:
     """Render an HTML fragment (possibly containing <script>) inside an iframe.
 
-    Streamlit deprecated `st.components.v1.html` in favour of `st.iframe`
-    (which gained an `srcdoc=` parameter). We try the new API first to avoid
-    deprecation noise in the logs; if it isn't available yet we fall back to
-    the legacy entry point so the app keeps working on older Streamlit runtimes.
+    Streamlit deprecated `st.components.v1.html` in favour of `st.iframe`,
+    but in current versions `st.iframe` only accepts a URL via `src=` —
+    not a `srcdoc=` HTML string. Until that API arrives we keep using the
+    legacy `components.html` (deprecation warning is harmless log noise).
     """
-    iframe_fn = getattr(st, "iframe", None)
-    if iframe_fn is not None:
-        try:
-            iframe_fn(srcdoc=html, height=height)
-            return
-        except TypeError:
-            # Older `st.iframe` signature without srcdoc support — fall back.
-            pass
-    import streamlit.components.v1 as components  # noqa: PLC0415  deprecation fallback
+    import streamlit.components.v1 as components  # noqa: PLC0415  deprecation pending
     components.html(html, height=height)
 
 
