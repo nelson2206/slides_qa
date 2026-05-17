@@ -552,6 +552,7 @@ def check_footer_alignment(deck: dict[str, Any]) -> dict[str, Any]:
 
     canonical_top = _median(tops)
     canonical_left = _median(lefts) if lefts else None
+    canonical_height = _median(heights) if heights else None
 
     TOP_TOLERANCE = 0.10  # inches — ~7px at 72dpi
     LEFT_TOLERANCE = 0.15
@@ -599,6 +600,7 @@ def check_footer_alignment(deck: dict[str, Any]) -> dict[str, Any]:
         "height_range_in": height_range,
         "canonical_top_in": canonical_top,
         "canonical_left_in": canonical_left,
+        "canonical_height_in": canonical_height,
         "outlier_slides": outlier_slides,
     }
 

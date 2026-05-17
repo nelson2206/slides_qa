@@ -15,6 +15,7 @@ without writing to disk.
 from __future__ import annotations
 
 import io
+import re
 from typing import Any, Literal
 
 from pptx import Presentation
@@ -296,13 +297,33 @@ def export_annotated_pptx(deck_path: str, result: dict[str, Any]) -> bytes:
 # Auto-fix engine — apply user-selected suggestions to the deck
 # ---------------------------------------------------------------------------
 
-FixId = Literal["sentence_case_title", "apply_llm_action_title", "canonical_footer_text"]
+FixId = Literal[
+    "sentence_case_title",
+    "apply_llm_action_title",
+    "canonical_footer_text",
+    "add_canonical_footer",
+    "move_footer_to_canonical_position",
+    "enforce_min_font_size",
+    "enforce_brand_font",
+    "bullet_long_paragraph",
+]
+
+# Sentence splitter: cuts on '.', '!', '?' followed by whitespace + capital
+# letter (covering Spanish accents). Won't split on abbreviations because they
+# rarely end in capital-letter-next-word.
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ])")
+
+
+def _split_into_sentences(text: str) -> list[str]:
+    """Split text into sentences (Spanish-aware). Skips very short fragments."""
+    raw = _SENTENCE_SPLIT_RE.split(text.strip())
+    return [s.strip() for s in raw if len(s.strip()) >= 8]
 
 
 def available_fixes_for_slide(finding: dict[str, Any]) -> list[dict[str, Any]]:
     """Return the list of auto-applicable fixes for a single slide finding.
 
-    Each fix dict: {id, slide_number, label, preview_before, preview_after, kind}
+    Each fix dict: {id, slide_number, label, preview_before, preview_after, …extra}
     """
     if finding.get("_skipped"):
         return []
@@ -337,12 +358,15 @@ def available_fixes_for_slide(finding: dict[str, Any]) -> list[dict[str, Any]]:
                 "preview_after": suggestion,
             })
 
-    # 3. Replace footer text with canonical
+    # 3. FOOTER fixes — three distinct cases
     footer = finding.get("footer") or {}
     canonical = footer.get("canonical_text")
+    exempt = footer.get("exempt", False)
+
+    # 3a. Footer present but text differs → replace text
     if (
         canonical
-        and not footer.get("exempt")
+        and not exempt
         and footer.get("present")
         and footer.get("matches_canonical") is False
     ):
@@ -353,6 +377,106 @@ def available_fixes_for_slide(finding: dict[str, Any]) -> list[dict[str, Any]]:
             "preview_before": footer.get("current_footer") or "",
             "preview_after": canonical,
         })
+
+    # 3b. Footer present but in wrong position → move to canonical top/left
+    outlier = footer.get("alignment_outlier") or {}
+    if (
+        not exempt
+        and footer.get("present")
+        and outlier
+        and outlier.get("canonical_top_in") is not None
+        and outlier.get("canonical_left_in") is not None
+    ):
+        ct = outlier["canonical_top_in"]
+        cl = outlier["canonical_left_in"]
+        cur_t = outlier.get("current_top_in", 0)
+        cur_l = outlier.get("current_left_in", 0)
+        fixes.append({
+            "id": "move_footer_to_canonical_position",
+            "slide_number": n,
+            "label": "Mover pie de página a esquina inferior izquierda",
+            "preview_before": f"top {cur_t:.2f}″ · left {cur_l:.2f}″",
+            "preview_after": f"top {ct:.2f}″ · left {cl:.2f}″",
+            "canonical_top_in": ct,
+            "canonical_left_in": cl,
+        })
+
+    # 3c. Footer absent → add it (only if canonical text + position known)
+    if (
+        canonical
+        and not exempt
+        and not footer.get("present")
+        and footer.get("canonical_top_in") is not None
+        and footer.get("canonical_left_in") is not None
+    ):
+        ct = footer["canonical_top_in"]
+        cl = footer["canonical_left_in"]
+        ch = footer.get("canonical_height_in") or 0.3
+        fixes.append({
+            "id": "add_canonical_footer",
+            "slide_number": n,
+            "label": "Agregar pie de página canónico",
+            "preview_before": "(sin pie de página)",
+            "preview_after": f'"{canonical}" en top {ct:.2f}″ · left {cl:.2f}″',
+            "canonical_text": canonical,
+            "canonical_top_in": ct,
+            "canonical_left_in": cl,
+            "canonical_height_in": ch,
+        })
+
+    # 4. Min font size — bump runs below 9pt up to 9pt
+    mfs = finding.get("min_font_size") or {}
+    if mfs.get("applicable") and not mfs.get("ok"):
+        min_required = mfs.get("min_required_pt", 9.0)
+        smallest = mfs.get("smallest_pt", 0)
+        violations = mfs.get("violations") or []
+        fixes.append({
+            "id": "enforce_min_font_size",
+            "slide_number": n,
+            "label": f"Subir fuentes < {int(min_required)}pt al mínimo",
+            "preview_before": f"{len(violations)} shape(s) · más chico {smallest:.1f}pt",
+            "preview_after": f"todos los runs explícitos ≥ {int(min_required)}pt",
+            "min_pt": min_required,
+        })
+
+    # 5. Brand font — replace non-ForFuture font names
+    ff = finding.get("font_family") or {}
+    if ff.get("applicable") and not ff.get("ok"):
+        non_brand = ff.get("non_brand") or []
+        non_brand_names = sorted({v["font"] for v in non_brand})
+        if non_brand_names:
+            fixes.append({
+                "id": "enforce_brand_font",
+                "slide_number": n,
+                "label": "Reemplazar fuentes off-brand con ForFuture Sans",
+                "preview_before": ", ".join(non_brand_names[:3])
+                                  + ("…" if len(non_brand_names) > 3 else ""),
+                "preview_after": "ForFuture Sans",
+                "brand_font": "ForFuture Sans",
+            })
+
+    # 6. Bullet a long single paragraph
+    tl = finding.get("text_length") or {}
+    long_paras = tl.get("long_paragraphs") or []
+    # Only offer when there's exactly one long paragraph (clean case) and it
+    # has at least 2 sentences worth splitting.
+    if len(long_paras) == 1:
+        # The long_paragraphs entries are pre-formatted strings; we need the
+        # raw shape name + snippet to find the actual shape in apply step.
+        # Encode the index in the fix payload.
+        raw_long = long_paras[0]
+        # Extract shape name from "(ShapeName, ~N líneas, M palabras) …snippet"
+        m = re.match(r"\(([^,]+),", raw_long)
+        if m:
+            shape_name = m.group(1).strip()
+            fixes.append({
+                "id": "bullet_long_paragraph",
+                "slide_number": n,
+                "label": "Dividir párrafo largo en bullets (por oración)",
+                "preview_before": raw_long[:140] + ("…" if len(raw_long) > 140 else ""),
+                "preview_after": "1 párrafo → N bullets cortos (split por oración)",
+                "shape_name": shape_name,
+            })
 
     return fixes
 
@@ -425,6 +549,152 @@ def _replace_footer_text(slide, current_text: str, new_text: str,
     return True
 
 
+def _find_footer_shape(slide, slide_height_in: float | None):
+    """Locate the footer shape in a slide (bottom-left strip)."""
+    if slide_height_in is None:
+        return None
+    bottom_threshold = slide_height_in * 0.82
+    candidates = []
+    for shape in slide.shapes:
+        if not shape.has_text_frame:
+            continue
+        if shape == slide.shapes.title:
+            continue
+        text = (shape.text_frame.text or "").strip()
+        if not text:
+            continue
+        try:
+            top_in = shape.top / 914400 if shape.top is not None else None
+            height_in = shape.height / 914400 if shape.height is not None else None
+            left_in = shape.left / 914400 if shape.left is not None else None
+        except (TypeError, AttributeError):
+            continue
+        if top_in is None or height_in is None or left_in is None:
+            continue
+        if top_in < bottom_threshold or height_in >= 0.7:
+            continue
+        candidates.append((left_in, shape))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda c: c[0])
+    return candidates[0][1]
+
+
+def _move_footer(slide, slide_height_in: float | None,
+                 new_top_in: float, new_left_in: float) -> bool:
+    """Find the footer and move it to (new_top_in, new_left_in) inches."""
+    footer = _find_footer_shape(slide, slide_height_in)
+    if footer is None:
+        return False
+    footer.top = Emu(int(new_top_in * 914400))
+    footer.left = Emu(int(new_left_in * 914400))
+    return True
+
+
+def _add_footer(slide, text: str, top_in: float, left_in: float,
+                height_in: float = 0.3, slide_width_in: float | None = None) -> bool:
+    """Add a new textbox containing the canonical footer at the given position."""
+    # Width: from left edge to ~60% of the slide width as a sensible default.
+    if slide_width_in is None:
+        width_in = 5.0
+    else:
+        width_in = max(2.0, min(slide_width_in - left_in - 0.3, slide_width_in * 0.6))
+    tb = slide.shapes.add_textbox(
+        Emu(int(left_in * 914400)),
+        Emu(int(top_in * 914400)),
+        Emu(int(width_in * 914400)),
+        Emu(int(height_in * 914400)),
+    )
+    tf = tb.text_frame
+    tf.word_wrap = True
+    tf.text = text
+    # Style the run so it visually reads as a footer
+    for para in tf.paragraphs:
+        for run in para.runs:
+            run.font.size = Pt(9)
+            run.font.name = "ForFuture Sans"
+    return True
+
+
+def _enforce_min_font(slide, min_pt: float) -> int:
+    """Bump every run with explicit size < min_pt up to min_pt. Returns count."""
+    count = 0
+    for shape in slide.shapes:
+        if not shape.has_text_frame:
+            continue
+        for para in shape.text_frame.paragraphs:
+            for run in para.runs:
+                sz = run.font.size
+                if sz is None:
+                    continue
+                try:
+                    current_pt = float(sz.pt)
+                except (AttributeError, ValueError):
+                    continue
+                if current_pt < min_pt - 0.01:
+                    run.font.size = Pt(min_pt)
+                    count += 1
+    return count
+
+
+_BRAND_FONT_NAME = "ForFuture Sans"
+_BRAND_ACCEPTABLE = {
+    "forfuture sans", "forfuturesans", "forfuture",
+}
+
+
+def _enforce_brand_font(slide) -> int:
+    """Replace every run.font.name that's not in the brand-acceptable set
+    with the canonical brand font. Returns count of runs updated."""
+    count = 0
+    for shape in slide.shapes:
+        if not shape.has_text_frame:
+            continue
+        for para in shape.text_frame.paragraphs:
+            for run in para.runs:
+                current = (run.font.name or "").strip().lower()
+                if not current:
+                    continue
+                # Strip common style suffixes the way checks._normalize_font does
+                norm = current.replace("-", " ").replace("_", " ")
+                norm = " ".join(norm.split())
+                if norm.replace(" ", "") == "forfuturesans":
+                    continue
+                if norm in _BRAND_ACCEPTABLE:
+                    continue
+                run.font.name = _BRAND_FONT_NAME
+                count += 1
+    return count
+
+
+def _split_long_paragraph(slide, shape_name: str) -> tuple[bool, int]:
+    """Find the named shape, take its (single) long paragraph and split it
+    into one paragraph per sentence. Returns (ok, num_bullets)."""
+    target = None
+    for shape in slide.shapes:
+        if shape.name == shape_name and shape.has_text_frame:
+            target = shape
+            break
+    if target is None:
+        return False, 0
+    tf = target.text_frame
+    # Combine all paragraph texts (in case there are blank paragraphs)
+    full_text = "\n".join(p.text for p in tf.paragraphs if p.text).strip()
+    if not full_text:
+        return False, 0
+    sentences = _split_into_sentences(full_text)
+    if len(sentences) < 2:
+        return False, 0
+    # Clear the text frame and write one paragraph per sentence
+    tf.clear()
+    first_para = tf.paragraphs[0]
+    first_para.text = sentences[0]
+    for s in sentences[1:]:
+        p = tf.add_paragraph()
+        p.text = s
+    return True, len(sentences)
+
+
 def apply_quick_fixes(
     deck_path: str,
     result: dict[str, Any],
@@ -439,6 +709,7 @@ def apply_quick_fixes(
     """
     prs = Presentation(deck_path)
     slide_height_in = prs.slide_height / 914400 if prs.slide_height else None
+    slide_width_in = prs.slide_width / 914400 if prs.slide_width else None
     slides_by_num = {i + 1: s for i, s in enumerate(prs.slides)}
 
     applied: list[dict[str, Any]] = []
@@ -452,22 +723,67 @@ def apply_quick_fixes(
             continue
 
         fix_id = fix["id"]
-        new_text = fix["preview_after"]
         try:
             if fix_id in ("sentence_case_title", "apply_llm_action_title"):
-                ok = _set_title_text(slide, new_text)
+                ok = _set_title_text(slide, fix["preview_after"])
                 if not ok:
                     failed.append({**fix, "reason": "Slide sin título editable"})
                     continue
+
             elif fix_id == "canonical_footer_text":
-                ok = _replace_footer_text(slide, fix["preview_before"],
-                                          new_text, slide_height_in)
+                ok = _replace_footer_text(
+                    slide, fix["preview_before"], fix["preview_after"],
+                    slide_height_in,
+                )
                 if not ok:
                     failed.append({**fix, "reason": "Pie de página no localizable"})
                     continue
+
+            elif fix_id == "move_footer_to_canonical_position":
+                ok = _move_footer(
+                    slide, slide_height_in,
+                    new_top_in=fix["canonical_top_in"],
+                    new_left_in=fix["canonical_left_in"],
+                )
+                if not ok:
+                    failed.append({**fix, "reason": "Pie de página no localizable para mover"})
+                    continue
+
+            elif fix_id == "add_canonical_footer":
+                ok = _add_footer(
+                    slide, fix["canonical_text"],
+                    top_in=fix["canonical_top_in"],
+                    left_in=fix["canonical_left_in"],
+                    height_in=fix.get("canonical_height_in", 0.3),
+                    slide_width_in=slide_width_in,
+                )
+                if not ok:
+                    failed.append({**fix, "reason": "No se pudo crear el textbox"})
+                    continue
+
+            elif fix_id == "enforce_min_font_size":
+                bumped = _enforce_min_font(slide, fix.get("min_pt", 9.0))
+                if bumped == 0:
+                    failed.append({**fix, "reason": "Sin runs de fuente explícita para corregir"})
+                    continue
+
+            elif fix_id == "enforce_brand_font":
+                replaced = _enforce_brand_font(slide)
+                if replaced == 0:
+                    failed.append({**fix, "reason": "Sin runs con fuente off-brand explícita"})
+                    continue
+
+            elif fix_id == "bullet_long_paragraph":
+                ok, bullets = _split_long_paragraph(slide, fix["shape_name"])
+                if not ok:
+                    failed.append({**fix, "reason": "No se pudo dividir el párrafo (<2 oraciones)"})
+                    continue
+                fix = {**fix, "bullets_created": bullets}
+
             else:
                 failed.append({**fix, "reason": f"Fix id desconocido: {fix_id}"})
                 continue
+
             applied.append(fix)
         except Exception as e:  # noqa: BLE001
             failed.append({**fix, "reason": str(e)})

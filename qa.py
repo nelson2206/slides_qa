@@ -240,17 +240,16 @@ def _build_footer_block(
     canonical_text: str | None = None,
     role: str | None = None,
     slide_alignment_outlier: dict[str, Any] | None = None,
+    canonical_top_in: float | None = None,
+    canonical_left_in: float | None = None,
+    canonical_height_in: float | None = None,
 ) -> dict[str, Any]:
     """Build the footer block per slide. Compares against the canonical footer
     text from the deck so the UI can show 'matches canonical' vs 'outlier'.
 
-    `slide_alignment_outlier`, when provided, contains the canonical top/left
-    positions and a list of how THIS slide deviates — used to render a concrete
-    fix suggestion ("mové el footer a top=X.XX in").
-
-    For non-body roles (cover/index/divider/closing) a missing footer is
-    legitimate and gets tagged with exempt=True so the UI can soften wording
-    and avoid suggesting "add the canonical footer".
+    Also threads through deck-level canonical position (top/left/height) so the
+    exporter's auto-fixes can both (a) move an outlier footer back into place
+    and (b) ADD a footer to slides that don't have one.
     """
     matches_canonical: bool | None = None
     if footer["present"] and footer.get("text") and canonical_text:
@@ -261,10 +260,6 @@ def _build_footer_block(
 
     exempt = role in NON_BODY_ROLES if role else False
 
-    # Per-slide alignment: True if this slide's footer matches the canonical
-    # position (within tolerance). Only False when this slide is in the outlier
-    # list — most slides will be aligned even if the deck-level check flagged
-    # some inconsistency.
     if not footer["present"]:
         aligned: bool | None = None
     elif slide_alignment_outlier is not None:
@@ -278,6 +273,9 @@ def _build_footer_block(
         "aligned": aligned,
         "matches_canonical": matches_canonical,
         "canonical_text": canonical_text,
+        "canonical_top_in": canonical_top_in,
+        "canonical_left_in": canonical_left_in,
+        "canonical_height_in": canonical_height_in,
         "exempt": exempt,
         "alignment_outlier": slide_alignment_outlier,
         "notes": footer["notes"] + (
@@ -301,6 +299,16 @@ def run_local_qa(file_name: str, deck: dict[str, Any]) -> Iterator[tuple[str, An
     align_outliers_by_num = {
         o["slide_number"]: o for o in footer_alignment.get("outlier_slides", [])
     }
+    canonical_top = footer_alignment.get("canonical_top_in")
+    canonical_left = footer_alignment.get("canonical_left_in")
+    canonical_height = footer_alignment.get("canonical_height_in")
+    # Fall back: if alignment didn't compute median (single footer), use that
+    # footer's position as canonical so add_canonical_footer fix still works.
+    findings_list = footer_alignment.get("findings") or []
+    if (canonical_top is None or canonical_left is None) and findings_list:
+        canonical_top = canonical_top or findings_list[0].get("top_in")
+        canonical_left = canonical_left or findings_list[0].get("left_in")
+        canonical_height = canonical_height or findings_list[0].get("height_in")
 
     slides_report = []
     for slide, det_slide in zip(deck["slides"], det["slides"]):
@@ -316,6 +324,9 @@ def run_local_qa(file_name: str, deck: dict[str, Any]) -> Iterator[tuple[str, An
             canonical_text=canonical_footer,
             role=det_slide["role"],
             slide_alignment_outlier=align_outliers_by_num.get(slide["slide_number"]),
+            canonical_top_in=canonical_top,
+            canonical_left_in=canonical_left,
+            canonical_height_in=canonical_height,
         )
         slides_report.append(finding)
 
@@ -370,6 +381,9 @@ def _merge_finding_with_deterministic(
             canonical_text=canonical_footer,
             role=det_slide["role"],
             slide_alignment_outlier=slide_alignment_outlier,
+            canonical_top_in=footer_alignment.get("canonical_top_in"),
+            canonical_left_in=footer_alignment.get("canonical_left_in"),
+            canonical_height_in=footer_alignment.get("canonical_height_in"),
         ),
         "min_font_size": det_slide.get("min_font_size") or {},
         "text_density": det_slide.get("text_density") or {},

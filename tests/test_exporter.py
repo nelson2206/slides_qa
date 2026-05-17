@@ -237,3 +237,184 @@ def test_apply_quick_fixes_reports_failures_gracefully(good_deck_path):
     # PPTX should still be returned (unmodified)
     out_deck = Presentation(io.BytesIO(out_bytes))
     assert len(out_deck.slides) > 0
+
+
+# ---------- new fixes: footer move / add ----------
+
+def test_available_fixes_offers_move_footer_when_outlier(bad_deck_path):
+    """Slide whose footer is in the wrong position should get a move fix."""
+    finding = {
+        "slide_number": 2,
+        "_skipped": False,
+        "footer": {
+            "present": True,
+            "exempt": False,
+            "alignment_outlier": {
+                "current_top_in": 6.5, "current_left_in": 2.0,
+                "canonical_top_in": 7.0, "canonical_left_in": 0.5,
+                "issues": ["top=6.50in vs canónico 7.00in"],
+            },
+        },
+        "action_title": {}, "title_case": {}, "min_font_size": {}, "font_family": {},
+        "text_length": {},
+    }
+    fixes = available_fixes_for_slide(finding)
+    move_fixes = [f for f in fixes if f["id"] == "move_footer_to_canonical_position"]
+    assert len(move_fixes) == 1
+    assert move_fixes[0]["canonical_top_in"] == 7.0
+    assert move_fixes[0]["canonical_left_in"] == 0.5
+
+
+def test_available_fixes_offers_add_footer_when_absent_with_canonical(bad_deck_path):
+    """Slide without footer + deck has canonical text+position should get add fix."""
+    finding = {
+        "slide_number": 5,
+        "_skipped": False,
+        "footer": {
+            "present": False,
+            "exempt": False,
+            "canonical_text": "Minsait · Project Acceleration",
+            "canonical_top_in": 6.95,
+            "canonical_left_in": 0.5,
+            "canonical_height_in": 0.3,
+        },
+        "action_title": {}, "title_case": {}, "min_font_size": {}, "font_family": {},
+        "text_length": {},
+    }
+    fixes = available_fixes_for_slide(finding)
+    add_fixes = [f for f in fixes if f["id"] == "add_canonical_footer"]
+    assert len(add_fixes) == 1
+    assert add_fixes[0]["canonical_text"] == "Minsait · Project Acceleration"
+
+
+def test_apply_move_footer_changes_position(good_deck_path):
+    """move_footer_to_canonical_position should physically relocate the footer shape."""
+    # First, find a slide in the good deck that already has a footer
+    prs_check = Presentation(str(good_deck_path))
+    target_slide_n = None
+    for i, s in enumerate(prs_check.slides, start=1):
+        # Quick footer detection: a small bottom shape with text
+        for shape in s.shapes:
+            if not shape.has_text_frame: continue
+            if shape == s.shapes.title: continue
+            text = (shape.text_frame.text or "").strip()
+            if not text: continue
+            try:
+                top_in = shape.top / 914400 if shape.top else None
+                h_in = shape.height / 914400 if shape.height else None
+            except (TypeError, AttributeError):
+                continue
+            if top_in and h_in and top_in > 5.5 and h_in < 0.7:
+                target_slide_n = i
+                break
+        if target_slide_n: break
+    if target_slide_n is None:
+        pytest.skip("Good deck has no detectable footer to move")
+
+    fix = {
+        "id": "move_footer_to_canonical_position",
+        "slide_number": target_slide_n,
+        "canonical_top_in": 7.0,
+        "canonical_left_in": 0.3,
+        "preview_before": "x", "preview_after": "y",
+    }
+    out_bytes, report = apply_quick_fixes(str(good_deck_path), {"slides": []}, [fix])
+    assert report["counts"]["applied"] == 1
+    # Verify the footer moved
+    out_deck = Presentation(io.BytesIO(out_bytes))
+    target = out_deck.slides[target_slide_n - 1]
+    found_at_canonical = False
+    for shape in target.shapes:
+        if not shape.has_text_frame: continue
+        if shape == target.shapes.title: continue
+        if not (shape.text_frame.text or "").strip(): continue
+        try:
+            top_in = shape.top / 914400 if shape.top else None
+            left_in = shape.left / 914400 if shape.left else None
+        except (TypeError, AttributeError):
+            continue
+        if top_in and left_in and abs(top_in - 7.0) < 0.05 and abs(left_in - 0.3) < 0.05:
+            found_at_canonical = True
+            break
+    assert found_at_canonical, "Footer was not relocated to canonical position"
+
+
+# ---------- new fixes: min font size ----------
+
+def test_available_fixes_offers_min_font_size():
+    finding = {
+        "slide_number": 4,
+        "_skipped": False,
+        "min_font_size": {
+            "applicable": True, "ok": False,
+            "min_required_pt": 9.0, "smallest_pt": 7.0,
+            "violations": [{"shape_name": "Body", "size_pt": 7.0}],
+        },
+        "footer": {}, "action_title": {}, "title_case": {}, "font_family": {},
+        "text_length": {},
+    }
+    fixes = available_fixes_for_slide(finding)
+    mfs_fixes = [f for f in fixes if f["id"] == "enforce_min_font_size"]
+    assert len(mfs_fixes) == 1
+    assert mfs_fixes[0]["min_pt"] == 9.0
+
+
+# ---------- new fixes: brand font ----------
+
+def test_available_fixes_offers_brand_font_replacement():
+    finding = {
+        "slide_number": 6,
+        "_skipped": False,
+        "font_family": {
+            "applicable": True, "ok": False,
+            "non_brand": [
+                {"font": "comic sans ms", "shapes": ["Body"], "fallback_ok": False},
+                {"font": "times new roman", "shapes": ["Footer"], "fallback_ok": False},
+            ],
+        },
+        "footer": {}, "action_title": {}, "title_case": {}, "min_font_size": {},
+        "text_length": {},
+    }
+    fixes = available_fixes_for_slide(finding)
+    bf_fixes = [f for f in fixes if f["id"] == "enforce_brand_font"]
+    assert len(bf_fixes) == 1
+    assert bf_fixes[0]["brand_font"] == "ForFuture Sans"
+
+
+# ---------- new fixes: bullet long paragraph ----------
+
+def test_available_fixes_offers_bullet_split_for_single_long_paragraph():
+    finding = {
+        "slide_number": 3,
+        "_skipped": False,
+        "text_length": {
+            "ok": False,
+            "long_paragraphs": [
+                "(CuadroTexto 97, ~4 líneas, 50 palabras) Lorem ipsum dolor sit amet…",
+            ],
+        },
+        "footer": {}, "action_title": {}, "title_case": {}, "min_font_size": {},
+        "font_family": {},
+    }
+    fixes = available_fixes_for_slide(finding)
+    bullet_fixes = [f for f in fixes if f["id"] == "bullet_long_paragraph"]
+    assert len(bullet_fixes) == 1
+    assert bullet_fixes[0]["shape_name"] == "CuadroTexto 97"
+
+
+def test_available_fixes_does_not_offer_bullet_split_when_multiple_long_paras():
+    finding = {
+        "slide_number": 3,
+        "_skipped": False,
+        "text_length": {
+            "ok": False,
+            "long_paragraphs": [
+                "(A, …) one",
+                "(B, …) two",
+            ],
+        },
+        "footer": {}, "action_title": {}, "title_case": {}, "min_font_size": {},
+        "font_family": {},
+    }
+    fixes = available_fixes_for_slide(finding)
+    assert not any(f["id"] == "bullet_long_paragraph" for f in fixes)
