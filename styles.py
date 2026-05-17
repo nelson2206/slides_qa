@@ -2219,17 +2219,35 @@ def section_label(text: str) -> None:
     st.markdown(f'<span class="qa-section-label">{text}</span>', unsafe_allow_html=True)
 
 
+def _inject_html_iframe(html: str, height: int = 0) -> None:
+    """Render an HTML fragment (possibly containing <script>) inside an iframe.
+
+    Streamlit deprecated `st.components.v1.html` in favour of `st.iframe`
+    (which gained an `srcdoc=` parameter). We try the new API first to avoid
+    deprecation noise in the logs; if it isn't available yet we fall back to
+    the legacy entry point so the app keeps working on older Streamlit runtimes.
+    """
+    iframe_fn = getattr(st, "iframe", None)
+    if iframe_fn is not None:
+        try:
+            iframe_fn(srcdoc=html, height=height)
+            return
+        except TypeError:
+            # Older `st.iframe` signature without srcdoc support — fall back.
+            pass
+    import streamlit.components.v1 as components  # noqa: PLC0415  deprecation fallback
+    components.html(html, height=height)
+
+
 def auto_scroll_to(anchor_id: str, *, delay_ms: int = 280) -> None:
     """Inject JS (via an invisible iframe) that smoothly scrolls the parent
     document to the element with `id=anchor_id`. Use sparingly — call only
     on the rerun when the target first appears, gated by st.session_state
     so it doesn't fight the user's manual scroll on subsequent reruns.
     """
-    import streamlit.components.v1 as components
-
     # The script runs inside an iframe but reaches up to window.parent —
     # safe since the iframe is same-origin with the Streamlit app.
-    components.html(
+    _inject_html_iframe(
         f"""
 <script>
   (function() {{
@@ -2269,9 +2287,7 @@ def nav_visibility_observer(trigger_id: str) -> None:
     Idempotent across Streamlit reruns: any previous observer is disconnected
     before a new one is bound. Cheap to call on every render.
     """
-    import streamlit.components.v1 as components
-
-    components.html(
+    _inject_html_iframe(
         f"""
 <script>
   (function() {{
@@ -2538,8 +2554,7 @@ def hide_nav() -> None:
     """Force-hide the navigator (and disconnect any active observer). Call on
     page renders where results aren't ready, so stale `qa-nav-visible` class
     from a previous session/file is cleared."""
-    import streamlit.components.v1 as components
-    components.html(
+    _inject_html_iframe(
         """
 <script>
   (function() {

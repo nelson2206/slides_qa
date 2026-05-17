@@ -99,12 +99,16 @@ with tab_actions:
         )
     else:
         # Lazy imports — only needed when Acciones is rendered with a result
-        from exporter import (
-            apply_quick_fixes,
-            available_fixes_for_slide,
-            export_annotated_pptx,
-        )
-        from comparator import compare_results
+        try:
+            from exporter import (
+                apply_quick_fixes,
+                available_fixes_for_slide,
+                export_annotated_pptx,
+            )
+            from comparator import compare_results
+        except Exception as _imp_e:  # noqa: BLE001
+            st.error(f"No se pudieron cargar las acciones: {_imp_e}")
+            st.stop()
 
         _cached_hash = st.session_state.get("qa_file_hash", "")
         _cached_filename = st.session_state.get(
@@ -112,6 +116,11 @@ with tab_actions:
         )
         _cached_pptx_bytes = st.session_state.get(f"pptx_bytes__{_cached_hash}")
         _cached_slides = _cached_result.get("slides") or []
+        # Hard cap on number of slides we'll render fix-checkboxes for. On very
+        # large decks (100+ slides) Streamlit would otherwise create thousands
+        # of widgets and OOM the Cloud worker.
+        _MAX_SLIDES_FOR_FIX_UI = 80
+        _MAX_PPTX_MB_FOR_CACHE = 50  # info-only — we still cache, just warn
 
         def _write_temp_pptx_for_actions(b: bytes) -> Path:
             with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as t:
@@ -140,24 +149,59 @@ with tab_actions:
                         src_path = _write_temp_pptx_for_actions(_cached_pptx_bytes)
                         try:
                             annotated_bytes = export_annotated_pptx(str(src_path), _cached_result)
+                            _export_error = None
+                        except Exception as _e:  # noqa: BLE001
+                            annotated_bytes = None
+                            _export_error = str(_e)
                         finally:
                             try: src_path.unlink()
                             except OSError: pass
-                    out_name = _cached_filename.replace(".pptx", "") + "_Holmes_review.pptx"
-                    st.success(f"Review listo · {len(annotated_bytes) // 1024} KB")
-                    st.download_button(
-                        "⬇️ Descargar .pptx anotado",
-                        data=annotated_bytes,
-                        file_name=out_name,
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                        key="dl_review_top",
-                    )
+                    if _export_error:
+                        st.error(f"No se pudo generar el review anotado: {_export_error}")
+                    else:
+                        out_name = _cached_filename.replace(".pptx", "") + "_Holmes_review.pptx"
+                        st.success(f"Review listo · {len(annotated_bytes) // 1024} KB")
+                        st.download_button(
+                            "⬇️ Descargar .pptx anotado",
+                            data=annotated_bytes,
+                            file_name=out_name,
+                            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                            key="dl_review_top",
+                        )
 
         # ----- 2) Aplicar fixes -----
         with _action_subtabs[1]:
+            # Gather fixes per-slide, swallowing per-slide errors so one
+            # malformed finding doesn't crash the whole tab.
             all_fixes: list[dict] = []
+            _fixes_errors: list[tuple[int, str]] = []
             for s in _cached_slides:
-                all_fixes.extend(available_fixes_for_slide(s))
+                try:
+                    all_fixes.extend(available_fixes_for_slide(s))
+                except Exception as _e:  # noqa: BLE001
+                    _fixes_errors.append((s.get("slide_number", "?"), str(_e)))
+
+            if _fixes_errors:
+                st.caption(
+                    f"⚠ {len(_fixes_errors)} slides no se pudieron analizar para fixes "
+                    f"(saltadas): " + ", ".join(f"#{n}" for n, _ in _fixes_errors[:8])
+                )
+
+            # Cap fix-checkboxes for very large decks to keep memory + reruns sane
+            if len({f["slide_number"] for f in all_fixes}) > _MAX_SLIDES_FOR_FIX_UI:
+                seen: set[int] = set()
+                capped: list[dict] = []
+                for f in all_fixes:
+                    seen.add(f["slide_number"])
+                    if len(seen) > _MAX_SLIDES_FOR_FIX_UI:
+                        break
+                    capped.append(f)
+                st.warning(
+                    f"Deck con {len({f['slide_number'] for f in all_fixes})} slides "
+                    f"con fixes — mostrando los primeros {_MAX_SLIDES_FOR_FIX_UI} "
+                    "para mantener la app rápida."
+                )
+                all_fixes = capped
 
             if not all_fixes:
                 st.info(
@@ -207,27 +251,34 @@ with tab_actions:
                             fixed_bytes, report = apply_quick_fixes(
                                 str(src_path), _cached_result, to_apply,
                             )
+                            _apply_error = None
+                        except Exception as _e:  # noqa: BLE001
+                            fixed_bytes, report = None, None
+                            _apply_error = str(_e)
                         finally:
                             try: src_path.unlink()
                             except OSError: pass
-                    out_name = _cached_filename.replace(".pptx", "") + "_Holmes_fixed.pptx"
-                    counts = report["counts"]
-                    if counts["failed"]:
-                        st.warning(
-                            f"{counts['applied']}/{counts['total_requested']} aplicados · "
-                            f"{counts['failed']} fallaron."
-                        )
-                        for f in report["failed"][:10]:
-                            st.caption(f"Slide {f['slide_number']} · {f['id']} · {f['reason']}")
+                    if _apply_error:
+                        st.error(f"No se pudieron aplicar los fixes: {_apply_error}")
                     else:
-                        st.success(f"{counts['applied']} fixes aplicados.")
-                    st.download_button(
-                        "⬇️ Descargar .pptx con fixes aplicados",
-                        data=fixed_bytes,
-                        file_name=out_name,
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                        key="dl_fixed_top",
-                    )
+                        out_name = _cached_filename.replace(".pptx", "") + "_Holmes_fixed.pptx"
+                        counts = report["counts"]
+                        if counts["failed"]:
+                            st.warning(
+                                f"{counts['applied']}/{counts['total_requested']} aplicados · "
+                                f"{counts['failed']} fallaron."
+                            )
+                            for f in report["failed"][:10]:
+                                st.caption(f"Slide {f['slide_number']} · {f['id']} · {f['reason']}")
+                        else:
+                            st.success(f"{counts['applied']} fixes aplicados.")
+                        st.download_button(
+                            "⬇️ Descargar .pptx con fixes aplicados",
+                            data=fixed_bytes,
+                            file_name=out_name,
+                            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                            key="dl_fixed_top",
+                        )
 
         # ----- 3) Comparar versiones -----
         with _action_subtabs[2]:
@@ -245,24 +296,28 @@ with tab_actions:
                 v2_bytes = v2_upload.getvalue()
                 v2_hash = hashlib.sha1(v2_bytes).hexdigest()[:16]
                 v2_cache_key = f"qa_result_v2__{v2_hash}"
-                if v2_cache_key in st.session_state:
-                    v2_result = st.session_state[v2_cache_key]
-                else:
-                    with st.spinner("Analizando versión 2 (modo local)…"):
-                        tmp_v2 = _write_temp_pptx_for_actions(v2_bytes)
-                        try:
-                            deck_v2 = extract_deck(tmp_v2)
-                        finally:
-                            try: tmp_v2.unlink()
-                            except OSError: pass
+                v2_result = st.session_state.get(v2_cache_key)
+                if v2_result is None:
+                    try:
+                        with st.spinner("Analizando versión 2 (modo local)…"):
+                            tmp_v2 = _write_temp_pptx_for_actions(v2_bytes)
+                            try:
+                                deck_v2 = extract_deck(tmp_v2)
+                            finally:
+                                try: tmp_v2.unlink()
+                                except OSError: pass
+                            for kind, payload in run_local_qa(v2_upload.name, deck_v2):
+                                if kind == "result":
+                                    v2_result = payload
+                            if v2_result is None:
+                                raise RuntimeError("No se recibió resultado del análisis.")
+                            st.session_state[v2_cache_key] = v2_result
+                    except Exception as _e:  # noqa: BLE001
+                        st.error(f"No se pudo analizar la versión 2: {_e}")
                         v2_result = None
-                        for kind, payload in run_local_qa(v2_upload.name, deck_v2):
-                            if kind == "result":
-                                v2_result = payload
-                        if v2_result is None:
-                            st.error("No se pudo analizar la versión 2.")
-                            st.stop()
-                        st.session_state[v2_cache_key] = v2_result
+
+                if v2_result is None:
+                    st.stop()
 
                 diff = compare_results(_cached_result, v2_result)
                 agg = diff["aggregate"]
@@ -404,8 +459,16 @@ _file_bytes = uploaded.getvalue()
 file_hash = hashlib.sha1(_file_bytes).hexdigest()[:16]
 
 # Cache the raw .pptx bytes by hash so the exporter / fixer / comparator can
-# read the original deck on later reruns without re-uploading.
-st.session_state[f"pptx_bytes__{file_hash}"] = _file_bytes
+# read the original deck on later reruns without re-uploading. Skip caching
+# for very large decks (>40 MB) to avoid blowing Streamlit Cloud's memory
+# budget — Acciones Holmes will degrade gracefully by asking the user to
+# re-upload when invoked.
+_file_size_mb = len(_file_bytes) / (1024 * 1024)
+if _file_size_mb <= 40:
+    st.session_state[f"pptx_bytes__{file_hash}"] = _file_bytes
+else:
+    # Clear any prior cache for this hash so stale bytes don't linger
+    st.session_state.pop(f"pptx_bytes__{file_hash}", None)
 st.session_state[f"pptx_filename__{file_hash}"] = uploaded.name
 
 with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
