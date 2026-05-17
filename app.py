@@ -129,6 +129,30 @@ with st.sidebar:
 
 
 # ---------------------------------------------------------------------------
+# Tabs — main flow lives in the first tab, MBB checklist in the second.
+# ---------------------------------------------------------------------------
+
+tab_audit, tab_practices = st.tabs([
+    "🔎  Auditar deck",
+    "📋  Buenas prácticas",
+])
+
+# Render the static best-practices checklist first. Even if the audit flow
+# later calls st.stop(), this tab's content is already written to its container.
+with tab_practices:
+    st.markdown(
+        getattr(styles, "best_practices_html", lambda: "")(),
+        unsafe_allow_html=True,
+    )
+
+# Activate tab_audit for the rest of the script. We rely on __enter__ pushing
+# this tab onto Streamlit's container stack so every subsequent st.* call lands
+# inside it. The script ends with st.stop() / natural EOF — Streamlit cleans up
+# the container stack at the end of the run, so we don't call __exit__.
+tab_audit.__enter__()
+
+
+# ---------------------------------------------------------------------------
 # File upload
 # ---------------------------------------------------------------------------
 
@@ -144,8 +168,6 @@ if uploaded is None:
     # styles module may be cached from before this commit on first request
     # after deploy. Fall back to no-op so the app doesn't crash.
     getattr(styles, "hide_nav", lambda: None)()
-    st.markdown("")
-    st.info("Esperando un `.pptx`. El modo local no gasta tokens.")
     st.stop()
 
 

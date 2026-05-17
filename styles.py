@@ -1175,6 +1175,136 @@ body.qa-nav-visible .qa-nav {
 .qa-slide-card,
 .qa-section-divider { scroll-margin-top: 200px; }
 
+/* ──────────────────────────────────────────────
+   Buenas prácticas tab — MBB checklist content
+   ────────────────────────────────────────────── */
+.qa-bp-wrapper {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0.4rem 0 2rem 0;
+}
+.qa-bp-header {
+  margin: 0 0 2.4rem 0;
+  padding-bottom: 1.4rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+.qa-bp-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.68rem;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.qa-bp-eyebrow::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 100px;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(233,78,119,0.6);
+}
+.qa-bp-title {
+  font-size: 1.95rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.025em !important;
+  color: var(--text-primary) !important;
+  margin: 0 0 10px 0 !important;
+  line-height: 1.12 !important;
+}
+.qa-bp-sub {
+  font-size: 0.96rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 70ch;
+}
+
+.qa-bp-section {
+  margin: 0 0 2rem 0;
+  padding: 22px 24px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.qa-bp-section::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--accent) 0%, #c43b62 100%);
+}
+.qa-bp-section-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.qa-bp-section-intro {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.012em;
+  margin-bottom: 14px;
+}
+
+.qa-bp-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.qa-bp-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  transition: transform 140ms ease, border-color 140ms ease;
+}
+.qa-bp-item:hover {
+  transform: translateX(2px);
+  border-color: rgba(233,78,119,0.22);
+}
+.qa-bp-check {
+  flex: 0 0 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--status-ok-bg);
+  color: var(--status-ok);
+  border-radius: 100px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  border: 1px solid rgba(4,120,87,0.18);
+}
+.qa-bp-item-body { flex: 1; min-width: 0; }
+.qa-bp-item-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.008em;
+  line-height: 1.35;
+  margin-bottom: 3px;
+}
+.qa-bp-item-detail {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
 /* Skipped slide card — compact, no checklist, single clear banner */
 .qa-slide-card.skipped-card {
   opacity: 0.86;
@@ -1954,6 +2084,129 @@ def live_progress_html(
         '</div>'
         f'{counts_html}'
         f'{phase_html}'
+        '</div>'
+    )
+
+
+def best_practices_html() -> str:
+    """Render the MBB-style best-practices checklist for the 'Buenas prácticas' tab.
+
+    Static content — same structure that Holmes evaluates, presented as a
+    learnable checklist so the user knows what 'good' looks like before
+    uploading anything.
+    """
+    sections = [
+        {
+            "label": "01 · Action titles",
+            "intro": "Cada slide se sostiene sola por su título.",
+            "items": [
+                ("Sujeto + verbo + insight cuantificado", "'Las ventas cayeron 18% en Q3 por la pérdida de los 3 top accounts' ✓ — no 'Análisis de ventas Q3'."),
+                ("Una sola idea por título", "Si necesitas 'y' o ';' para conectar dos ideas, divide en dos slides."),
+                ("Test de horizontal logic", "Lee solo los titles en orden. ¿Cuentan la historia sin abrir el deck? Si no, falla."),
+                ("Sin labels descriptivos", "'Contexto', 'Análisis', 'Conclusiones' son etiquetas — no titles."),
+            ],
+        },
+        {
+            "label": "02 · So-what por slide",
+            "intro": "El gráfico no es el insight. La implicación sí.",
+            "items": [
+                ("Responde '¿y qué?'", "¿Qué decisión habilita esta slide? Si solo describe data, falta el so-what."),
+                ("Takeaway arriba, evidencia abajo", "Pyramid Principle: la conclusión va primero, lo soporta abajo."),
+                ("Accionable, no descriptivo", "'El cliente debe reasignar inversión a digital' ✓ — no 'El canal digital crece'."),
+            ],
+        },
+        {
+            "label": "03 · Pyramid Principle / SCQA",
+            "intro": "Estructura de argumento de consultora.",
+            "items": [
+                ("Governing thought en la portada", "El argumento central del deck visible en slide 1 y dividers."),
+                ("Argumentos MECE", "Mutually Exclusive, Collectively Exhaustive. Sin solapes, sin gaps."),
+                ("Causa antes que consecuencia", "Primero evidencia, después conclusión. Nunca al revés."),
+                ("SCQA en la apertura", "Situación → Complicación → Pregunta → Respuesta. Sin Complicación, no hay urgencia."),
+            ],
+        },
+        {
+            "label": "04 · Storyline (horizontal logic)",
+            "intro": "El deck cuenta UNA historia, no N slides sueltos.",
+            "items": [
+                ("Secuencia coherente de titles", "Slide 1 → N: cada title se apoya en el anterior y prepara el siguiente."),
+                ("Dividers con título de sección", "Cada chapter empieza con un divider que anuncia el argumento de la sección."),
+                ("Sin slides redundantes", "Si dos slides dicen lo mismo, fusiona o elimina."),
+                ("Filename refleja el deck", "El nombre del archivo debe contener keywords del governing thought."),
+            ],
+        },
+        {
+            "label": "05 · Layout y consistencia",
+            "intro": "El detalle visual importa. Inconsistencias gritan amateur.",
+            "items": [
+                ("Pie de página consistente", "Mismo texto, misma posición (top/left), misma altura en todas las slides de contenido."),
+                ("Mayúsculas consistentes", "Todo title case, todo sentence case, o todo UPPER — no mezcla."),
+                ("Jerarquía tipográfica clara", "Title, subtitle, body, caption — tamaños y pesos diferenciados pero consistentes."),
+                ("Una sola familia tipográfica", "Máximo dos: una para titles, otra para body. Sin más."),
+            ],
+        },
+        {
+            "label": "06 · Densidad de texto",
+            "intro": "Si necesitas leer el slide, es muy denso.",
+            "items": [
+                ("Máximo ~250 palabras por slide", "Más que eso: divide en dos o agrega un visual que resuma."),
+                ("Bullets de 2-3 líneas", "Nunca párrafos de prosa en bullets. Si no entra en 3 líneas, reescríbelo."),
+                ("Tamaño mínimo de fuente: 9pt", "Cualquier texto bajo 9pt es ilegible en proyector e impresión."),
+                ("Si hay mucho texto, agrega visuales", "Un chart o esquema bien hecho reemplaza media página de prosa."),
+            ],
+        },
+        {
+            "label": "07 · Charts y visuales",
+            "intro": "El chart vende el insight. Sin contexto, no vende nada.",
+            "items": [
+                ("Ejes con unidades visibles", "Siempre. '%', 'M USD', 'unidades' — no asumas que se entiende."),
+                ("Fuente + periodo del dato", "'Fuente: SUNAT, 2020-2024' al pie del chart. Sin esto, el chart es opinión."),
+                ("Takeaway en el título del chart", "El título del chart dice la conclusión, no describe los ejes."),
+                ("Cero chart-junk", "Sin 3D, sin gradientes decorativos, sin leyendas redundantes, sin gridlines innecesarios."),
+                ("Una sola comparación por chart", "Si el chart contesta dos preguntas, divide en dos charts."),
+            ],
+        },
+        {
+            "label": "08 · Boilerplate (Holmes los ignora)",
+            "intro": "Estos slides son estructurales, no llevan action title.",
+            "items": [
+                ("Carátula / portada", "Solo título del proyecto + cliente + fecha. Sin so-what."),
+                ("Avisos de confidencialidad", "Plantilla legal. Holmes la detecta y la salta."),
+                ("Índice / agenda", "Solo lista de capítulos. Holmes la detecta por título o por estructura numerada."),
+                ("Dividers de sección", "Solo número + nombre del chapter. Holmes los detecta por layout o por título exacto."),
+                ("Referencias / credenciales / CVs", "Material de cierre. Holmes los detecta por keywords del título."),
+                ("Cierre / contacto / gracias", "Holmes los detecta y los salta."),
+            ],
+        },
+    ]
+
+    blocks = []
+    for sec in sections:
+        items_html = "".join(
+            '<li class="qa-bp-item">'
+            f'<span class="qa-bp-check">✓</span>'
+            '<div class="qa-bp-item-body">'
+            f'<div class="qa-bp-item-title">{_escape_html(title)}</div>'
+            f'<div class="qa-bp-item-detail">{_escape_html(detail)}</div>'
+            '</div>'
+            '</li>'
+            for title, detail in sec["items"]
+        )
+        blocks.append(
+            '<section class="qa-bp-section">'
+            f'<div class="qa-bp-section-label">{_escape_html(sec["label"])}</div>'
+            f'<div class="qa-bp-section-intro">{_escape_html(sec["intro"])}</div>'
+            f'<ul class="qa-bp-list">{items_html}</ul>'
+            '</section>'
+        )
+    return (
+        '<div class="qa-bp-wrapper">'
+        '<div class="qa-bp-header">'
+        '<div class="qa-bp-eyebrow">Holmes evalúa contra este estándar</div>'
+        '<h2 class="qa-bp-title">Buenas prácticas para decks de consultoría</h2>'
+        '<p class="qa-bp-sub">Estándar Pyramid Principle / SCQA / Minto que aplican McKinsey, Bain, BCG y Minsait. Holmes audita cada slide contra esta lista.</p>'
+        '</div>'
+        f'{"".join(blocks)}'
         '</div>'
     )
 
