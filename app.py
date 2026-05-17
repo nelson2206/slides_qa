@@ -457,17 +457,30 @@ if uploaded is None:
 # Stable file hash for caching across reruns
 _file_bytes = uploaded.getvalue()
 file_hash = hashlib.sha1(_file_bytes).hexdigest()[:16]
+_file_size_mb = len(_file_bytes) / (1024 * 1024)
+
+# Hard cap — Streamlit Cloud free tier (~1 GB RAM) crashes on big decks once
+# python-pptx + LibreOffice expand the .pptx contents in memory. A 50 MB
+# pptx already uses ~250 MB during extraction; 80+ MB OOMs the worker.
+_MAX_UPLOAD_MB = 50
+if _file_size_mb > _MAX_UPLOAD_MB:
+    st.error(
+        f"📦 Deck demasiado pesado: **{_file_size_mb:.0f} MB** "
+        f"(máximo {_MAX_UPLOAD_MB} MB en este servidor).\n\n"
+        f"**Comprimí las imágenes** y volvé a subirlo:\n\n"
+        f"En PowerPoint → **Archivo → Información → Comprimir imágenes** "
+        f"→ elegí **96 ppi (e-mail)** y desmarcá *Aplicar solo a esta imagen*. "
+        f"Un deck de 89 MB suele bajar a ~10-15 MB sin pérdida visual notable."
+    )
+    st.stop()
 
 # Cache the raw .pptx bytes by hash so the exporter / fixer / comparator can
 # read the original deck on later reruns without re-uploading. Skip caching
-# for very large decks (>40 MB) to avoid blowing Streamlit Cloud's memory
-# budget — Acciones Holmes will degrade gracefully by asking the user to
-# re-upload when invoked.
-_file_size_mb = len(_file_bytes) / (1024 * 1024)
-if _file_size_mb <= 40:
+# for files > 25 MB to keep session_state lean (Acciones Holmes will ask the
+# user to re-upload if needed).
+if _file_size_mb <= 25:
     st.session_state[f"pptx_bytes__{file_hash}"] = _file_bytes
 else:
-    # Clear any prior cache for this hash so stale bytes don't linger
     st.session_state.pop(f"pptx_bytes__{file_hash}", None)
 st.session_state[f"pptx_filename__{file_hash}"] = uploaded.name
 
@@ -720,8 +733,27 @@ if run_button:
                     if n <= slides_to_process
                 }
 
-    # Render thumbnails — ALWAYS (auto backend)
-    thumbs = _get_thumbnails(tmp_path, deck_to_run)
+    # Render thumbnails — skip for very large decks because LibreOffice's
+    # PDF rasterisation peaks at 300-500 MB on 80+ slide decks and can OOM
+    # the Streamlit Cloud worker. The slide cards fall back to no preview.
+    _THUMBS_SLIDE_LIMIT = 70
+    _THUMBS_SIZE_LIMIT_MB = 25
+    if (
+        deck_to_run["slide_count"] > _THUMBS_SLIDE_LIMIT
+        or _file_size_mb > _THUMBS_SIZE_LIMIT_MB
+    ):
+        st.caption(
+            f"ℹ️ Saltando miniaturas — deck pesado "
+            f"({deck_to_run['slide_count']} slides · {_file_size_mb:.0f} MB). "
+            "Los slide cards van a usar fallback sin preview visual."
+        )
+        thumbs = {}
+    else:
+        try:
+            thumbs = _get_thumbnails(tmp_path, deck_to_run)
+        except Exception as _thumb_e:  # noqa: BLE001
+            st.caption(f"ℹ️ No se pudieron generar miniaturas: {_thumb_e}")
+            thumbs = {}
 
     try:
         tmp_path.unlink()

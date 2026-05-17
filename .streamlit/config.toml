@@ -12,3 +12,9 @@ gatherUsageStats = false
 
 [client]
 toolbarMode = "minimal"
+
+[server]
+# Cap upload size at 80 MB. Streamlit Cloud free tier (~1 GB RAM) OOMs when
+# python-pptx + LibreOffice extract a much larger deck. App.py adds a softer
+# hard-reject at 50 MB with a helpful "compress images" message.
+maxUploadSize = 80
