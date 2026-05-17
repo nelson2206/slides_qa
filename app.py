@@ -479,9 +479,10 @@ file_hash = hashlib.sha1(_file_bytes).hexdigest()[:16]
 _file_size_mb = len(_file_bytes) / (1024 * 1024)
 
 # Hard cap — Streamlit Cloud free tier (~1 GB RAM) crashes on big decks once
-# python-pptx + LibreOffice expand the .pptx contents in memory. A 50 MB
-# pptx already uses ~250 MB during extraction; 80+ MB OOMs the worker.
-_MAX_UPLOAD_MB = 50
+# python-pptx + LibreOffice expand the .pptx contents in memory. 40 MB leaves
+# ~400 MB headroom for LibreOffice's PDF rasterisation (which peaks at
+# ~300-350 MB on a 40 MB deck), keeping thumbnails on for every accepted file.
+_MAX_UPLOAD_MB = 40
 if _file_size_mb > _MAX_UPLOAD_MB:
     st.error(
         f"📦 Deck demasiado pesado: **{_file_size_mb:.0f} MB** "
@@ -756,27 +757,15 @@ if run_button:
                     if n <= slides_to_process
                 }
 
-    # Render thumbnails — skip for very large decks because LibreOffice's
-    # PDF rasterisation peaks at 300-500 MB on 80+ slide decks and can OOM
-    # the Streamlit Cloud worker. The slide cards fall back to no preview.
-    _THUMBS_SLIDE_LIMIT = 70
-    _THUMBS_SIZE_LIMIT_MB = 25
-    if (
-        deck_to_run["slide_count"] > _THUMBS_SLIDE_LIMIT
-        or _file_size_mb > _THUMBS_SIZE_LIMIT_MB
-    ):
-        st.caption(
-            f"ℹ️ Saltando miniaturas — deck pesado "
-            f"({deck_to_run['slide_count']} slides · {_file_size_mb:.0f} MB). "
-            "Los slide cards van a usar fallback sin preview visual."
-        )
+    # Render thumbnails — the upload cap (_MAX_UPLOAD_MB = 40) is sized to
+    # leave enough RAM for LibreOffice's PDF rasterisation, so we always try.
+    # If thumbnail generation fails (e.g. LibreOffice crash on an exotic
+    # deck), we fall back to no preview rather than blocking the audit.
+    try:
+        thumbs = _get_thumbnails(tmp_path, deck_to_run)
+    except Exception as _thumb_e:  # noqa: BLE001
+        st.caption(f"ℹ️ No se pudieron generar miniaturas: {_thumb_e}")
         thumbs = {}
-    else:
-        try:
-            thumbs = _get_thumbnails(tmp_path, deck_to_run)
-        except Exception as _thumb_e:  # noqa: BLE001
-            st.caption(f"ℹ️ No se pudieron generar miniaturas: {_thumb_e}")
-            thumbs = {}
 
     try:
         tmp_path.unlink()
