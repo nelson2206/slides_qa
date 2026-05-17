@@ -222,6 +222,7 @@ def render_via_libreoffice(
 
     try:
         from pdf2image import convert_from_path
+        from pdf2image.pdf2image import pdfinfo_from_path
     except ImportError as e:
         raise RuntimeError(f"pdf2image faltante: {e}")
 
@@ -249,20 +250,36 @@ def render_via_libreoffice(
     if not pdf_path.exists():
         raise RuntimeError(f"LibreOffice no produjo PDF en {pdf_path}")
 
-    # Step 2: PDF → PNG per page
-    # DPI 100 gives a usable thumbnail; we resize to THUMB_W × THUMB_H after.
-    pil_images = convert_from_path(str(pdf_path), dpi=100)
+    # Step 2: PDF → PNG, ONE PAGE AT A TIME.
+    # Loading every page into PIL at once via `convert_from_path(pdf_path)`
+    # was the OOM source on image-heavy decks: a 34-slide deck with 130+
+    # embedded photos kept ~250-350 MB of raw PIL bitmaps live simultaneously
+    # and crashed the 1 GB Streamlit Cloud worker. Iterating page-by-page
+    # caps peak memory at ~8-10 MB (a single PIL.Image), regardless of deck
+    # size or image density. DPI 100 is intentional — we resize to THUMB_W
+    # (480 px) below anyway, so higher DPI buys nothing but RAM.
+    info = pdfinfo_from_path(str(pdf_path))
+    total = info.get("Pages") or 1
 
     from PIL import Image
     result: dict[int, bytes] = {}
-    total = len(pil_images)
-    for i, img in enumerate(pil_images, start=1):
-        # Preserve aspect ratio: thumbnail() resizes in-place, fits within box
+    for i in range(1, total + 1):
+        pages = convert_from_path(
+            str(pdf_path), dpi=100, first_page=i, last_page=i,
+        )
+        if not pages:
+            continue
+        img = pages[0]
         thumb = img.copy()
         thumb.thumbnail((width, height), Image.LANCZOS)
         buf = io.BytesIO()
         thumb.save(buf, format="PNG", optimize=True)
         result[i] = buf.getvalue()
+        # Free the raw PIL bitmaps before the next iteration so peak RSS
+        # stays flat across the whole deck.
+        img.close()
+        thumb.close()
+        del pages, img, thumb, buf
         if progress_cb:
             progress_cb(i, total)
     return result
