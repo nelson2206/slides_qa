@@ -1230,133 +1230,155 @@ body.qa-nav-visible .qa-nav {
 .qa-section-divider { scroll-margin-top: 200px; }
 
 /* ──────────────────────────────────────────────
-   Buenas prácticas tab — MBB checklist content
+   Buenas prácticas tab — refined, Kowalski-flavoured
+   White cards · large numerals · hairline dividers · pink used sparingly
    ────────────────────────────────────────────── */
 .qa-bp-wrapper {
-  max-width: 920px;
+  max-width: 880px;
   margin: 0 auto;
-  padding: 0.4rem 0 2rem 0;
+  padding: 1rem 0 3rem 0;
 }
+
+/* ----- Header ----- */
 .qa-bp-header {
-  margin: 0 0 2.4rem 0;
-  padding-bottom: 1.4rem;
-  border-bottom: 1px solid var(--border-soft);
+  margin: 0 0 3rem 0;
 }
 .qa-bp-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-size: 0.68rem;
-  letter-spacing: 0.10em;
+  gap: 8px;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-weight: 700;
-  color: var(--accent);
-  margin-bottom: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 16px;
 }
 .qa-bp-eyebrow::before {
   content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 100px;
+  width: 18px;
+  height: 1px;
   background: var(--accent);
-  box-shadow: 0 0 8px rgba(233,78,119,0.6);
 }
 .qa-bp-title {
-  font-size: 1.95rem !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.025em !important;
+  font-size: 2.4rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.034em !important;
   color: var(--text-primary) !important;
-  margin: 0 0 10px 0 !important;
-  line-height: 1.12 !important;
+  margin: 0 0 14px 0 !important;
+  line-height: 1.08 !important;
 }
 .qa-bp-sub {
-  font-size: 0.96rem;
-  line-height: 1.55;
+  font-size: 1.02rem;
+  line-height: 1.6;
   color: var(--text-muted);
   margin: 0;
-  max-width: 70ch;
+  max-width: 60ch;
+  font-weight: 400;
+  letter-spacing: -0.005em;
 }
 
+/* ----- Section card ----- */
 .qa-bp-section {
-  margin: 0 0 2rem 0;
-  padding: 22px 24px;
-  background: var(--surface-2);
-  border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  position: relative;
-  overflow: hidden;
+  background: white;
+  border: 1px solid rgba(61,13,26,0.06);
+  border-radius: 18px;
+  padding: 38px 44px;
+  margin: 0 0 1rem 0;
+  transition: border-color 240ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 240ms ease;
+  box-shadow: 0 1px 2px rgba(61,13,26,0.025);
 }
-.qa-bp-section::before {
-  content: "";
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-  background: linear-gradient(180deg, var(--accent) 0%, #c43b62 100%);
+.qa-bp-section:hover {
+  border-color: rgba(233,78,119,0.15);
+  box-shadow: 0 4px 16px rgba(61,13,26,0.05);
 }
-.qa-bp-section-label {
-  font-size: 0.7rem;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: var(--accent);
-  margin-bottom: 6px;
+
+/* Section head: large numeral on the left, titles stack on the right */
+.qa-bp-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  margin-bottom: 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid rgba(61,13,26,0.05);
 }
-.qa-bp-section-intro {
-  font-size: 1.05rem;
+.qa-bp-section-num {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: rgba(61,13,26,0.28);
+  letter-spacing: -0.02em;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  min-width: 44px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.qa-bp-section-titles {
+  flex: 1;
+  min-width: 0;
+}
+.qa-bp-section-name {
+  font-size: 1.32rem;
   font-weight: 600;
   color: var(--text-primary);
-  letter-spacing: -0.012em;
-  margin-bottom: 14px;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+  margin: 0 0 6px 0;
+}
+.qa-bp-section-intro {
+  font-size: 0.96rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: -0.005em;
+  line-height: 1.5;
+  margin: 0;
 }
 
+/* ----- Item list — flat lines separated by hairlines ----- */
 .qa-bp-list {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 .qa-bp-item {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
-  background: rgba(255,255,255,0.55);
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  transition: transform 140ms ease, border-color 140ms ease;
+  gap: 18px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(61,13,26,0.04);
+  transition: padding-left 240ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
-.qa-bp-item:hover {
-  transform: translateX(2px);
-  border-color: rgba(233,78,119,0.22);
-}
-.qa-bp-check {
-  flex: 0 0 26px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--status-ok-bg);
-  color: var(--status-ok);
-  border-radius: 100px;
-  font-size: 0.88rem;
-  font-weight: 800;
-  border: 1px solid rgba(4,120,87,0.18);
+.qa-bp-item:last-child { border-bottom: none; padding-bottom: 0; }
+.qa-bp-item:first-child { padding-top: 0; }
+.qa-bp-item:hover { padding-left: 4px; }
+.qa-bp-item:hover .qa-bp-marker { width: 22px; background: var(--accent); }
+
+/* Subtle thin accent line replaces the chunky green check circle */
+.qa-bp-marker {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 1.5px;
+  background: rgba(61,13,26,0.18);
+  margin-top: 0.7rem;
+  border-radius: 1px;
+  transition: width 240ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              background 200ms ease;
 }
 .qa-bp-item-body { flex: 1; min-width: 0; }
 .qa-bp-item-title {
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--text-primary);
-  letter-spacing: -0.008em;
-  line-height: 1.35;
-  margin-bottom: 3px;
+  letter-spacing: -0.013em;
+  line-height: 1.4;
+  margin-bottom: 5px;
 }
 .qa-bp-item-detail {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.65;
+  letter-spacing: -0.003em;
+  font-weight: 400;
 }
 
 /* Skipped slide card — compact, no checklist, single clear banner */
@@ -2207,18 +2229,18 @@ def best_practices_html() -> str:
                 ("Máximo ~250 palabras por slide", "Más que eso: divide en dos o agrega un visual que resuma."),
                 ("Bullets de 2-3 líneas", "Nunca párrafos de prosa en bullets. Si no entra en 3 líneas, reescríbelo."),
                 ("Tamaño mínimo de fuente: 9pt", "Cualquier texto bajo 9pt es ilegible en proyector e impresión."),
-                ("Si hay mucho texto, agrega visuales", "Un chart o esquema bien hecho reemplaza media página de prosa."),
+                ("Si hay mucho texto, agrega visuales", "Un gráfico o esquema bien hecho reemplaza media página de prosa."),
             ],
         },
         {
-            "label": "07 · Charts y visuales",
-            "intro": "El chart vende el insight. Sin contexto, no vende nada.",
+            "label": "07 · Gráficos y visuales",
+            "intro": "El gráfico vende el insight. Sin contexto, no vende nada.",
             "items": [
                 ("Ejes con unidades visibles", "Siempre. '%', 'M USD', 'unidades' — no asumas que se entiende."),
-                ("Fuente + periodo del dato", "'Fuente: SUNAT, 2020-2024' al pie del chart. Sin esto, el chart es opinión."),
-                ("Takeaway en el título del chart", "El título del chart dice la conclusión, no describe los ejes."),
-                ("Cero chart-junk", "Sin 3D, sin gradientes decorativos, sin leyendas redundantes, sin gridlines innecesarios."),
-                ("Una sola comparación por chart", "Si el chart contesta dos preguntas, divide en dos charts."),
+                ("Fuente + periodo del dato", "'Fuente: SUNAT, 2020-2024' al pie del gráfico. Sin esto, es opinión."),
+                ("Takeaway en el título del gráfico", "El título dice la conclusión, no describe los ejes."),
+                ("Sin ruido visual", "Sin 3D, sin gradientes decorativos, sin leyendas redundantes, sin gridlines innecesarios."),
+                ("Una sola comparación por gráfico", "Si contesta dos preguntas, divide en dos gráficos."),
             ],
         },
         {
@@ -2237,9 +2259,17 @@ def best_practices_html() -> str:
 
     blocks = []
     for sec in sections:
+        # Split the original 'NN · Title' label into a refined typographic
+        # number + name layout.
+        raw_label = sec["label"]
+        if " · " in raw_label:
+            num_str, name_str = raw_label.split(" · ", 1)
+        else:
+            num_str, name_str = "", raw_label
+
         items_html = "".join(
             '<li class="qa-bp-item">'
-            f'<span class="qa-bp-check">✓</span>'
+            '<span class="qa-bp-marker" aria-hidden="true"></span>'
             '<div class="qa-bp-item-body">'
             f'<div class="qa-bp-item-title">{_escape_html(title)}</div>'
             f'<div class="qa-bp-item-detail">{_escape_html(detail)}</div>'
@@ -2249,8 +2279,13 @@ def best_practices_html() -> str:
         )
         blocks.append(
             '<section class="qa-bp-section">'
-            f'<div class="qa-bp-section-label">{_escape_html(sec["label"])}</div>'
-            f'<div class="qa-bp-section-intro">{_escape_html(sec["intro"])}</div>'
+            '<header class="qa-bp-section-head">'
+            f'<span class="qa-bp-section-num">{_escape_html(num_str)}</span>'
+            '<div class="qa-bp-section-titles">'
+            f'<h3 class="qa-bp-section-name">{_escape_html(name_str)}</h3>'
+            f'<p class="qa-bp-section-intro">{_escape_html(sec["intro"])}</p>'
+            '</div>'
+            '</header>'
             f'<ul class="qa-bp-list">{items_html}</ul>'
             '</section>'
         )
@@ -2259,7 +2294,7 @@ def best_practices_html() -> str:
         '<div class="qa-bp-header">'
         '<div class="qa-bp-eyebrow">Holmes evalúa contra este estándar</div>'
         '<h2 class="qa-bp-title">Buenas prácticas para decks de consultoría</h2>'
-        '<p class="qa-bp-sub">Estándar Pyramid Principle / SCQA / Minto que aplican McKinsey, Bain, BCG y Minsait. Holmes audita cada slide contra esta lista.</p>'
+        '<p class="qa-bp-sub">Pyramid Principle, SCQA, Minto — el estándar que aplican McKinsey, Bain, BCG y Minsait. Holmes audita cada slide contra esta lista.</p>'
         '</div>'
         f'{"".join(blocks)}'
         '</div>'
