@@ -859,31 +859,43 @@ hr {
   gap: 16px;
 }
 
-/* ── Icon rolodex ── */
+/* ── Icon rolodex ──
+   The icon tile and the text rolodexes all use `position: relative` wrappers
+   with `position: absolute` inner rolls anchored at top: 0 / left: 0. We
+   intentionally do NOT use flex centering on the wrappers — flex would
+   center the entire (much taller) roll inside the small wrapper, which
+   makes the visible window land in the middle of the roll instead of on
+   the current frame. With absolute positioning, the wrapper window stays
+   anchored to the top edge and translateY moves the strip up frame-by-
+   frame correctly.
+
+   All three rolodexes use `steps()` with the SAME --qa-scan-n step count
+   so the icon and the two text lines stay in perfect lockstep — no
+   eased transitions on one rolodex and step-snaps on another. */
 .qa-scan-icon-wrap {
   flex-shrink: 0;
+  position: relative;
   width: 52px;
   height: 52px;
   background: white;
   border: 1px solid rgba(233, 78, 119, 0.18);
   border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
   box-shadow: 0 2px 10px rgba(233, 78, 119, 0.08),
               inset 0 0 0 1px rgba(255, 255, 255, 0.5);
-  position: relative;
 }
 .qa-scan-icon-roll {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
   animation: qa-scan-icon-roll var(--qa-scan-duration)
              steps(var(--qa-scan-n)) infinite;
 }
 .qa-scan-icon-item {
-  width: 52px;
+  width: 100%;
   height: 52px;
   flex-shrink: 0;
   display: flex;
@@ -891,7 +903,6 @@ hr {
   justify-content: center;
   font-size: 1.6rem;
   line-height: 1;
-  /* Aa fallback for the casing check looks better in serif weight */
   font-weight: 700;
   color: var(--accent);
 }
@@ -900,92 +911,75 @@ hr {
   to   { transform: translateY(calc(-52px * var(--qa-scan-n))); }
 }
 
-/* ── Text rolodexes (name + description in sync) ── */
+/* ── Text rolodexes (name + description in sync with icon) ── */
 .qa-scan-text {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  justify-content: center;
 }
 .qa-scan-name-wrap,
 .qa-scan-desc-wrap {
-  height: 1.4em;
-  overflow: hidden;
   position: relative;
-  mask-image: linear-gradient(to bottom,
-    transparent 0%, black 18%, black 82%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom,
-    transparent 0%, black 18%, black 82%, transparent 100%);
+  overflow: hidden;
+  width: 100%;
 }
+/* Wraps are sized to exactly one item height (no descender clipping —
+   we use 1.5em line-height with matching item height so glyphs with
+   descenders like "página" don't get cut off). */
+.qa-scan-name-wrap { height: 1.4em; }
+.qa-scan-desc-wrap { height: 1.3em; }
+
 .qa-scan-name-roll,
 .qa-scan-desc-roll {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   flex-direction: column;
-  animation: qa-scan-text-roll var(--qa-scan-duration)
-             cubic-bezier(0.7, 0, 0.3, 1) infinite;
+  animation-duration: var(--qa-scan-duration);
+  animation-timing-function: steps(var(--qa-scan-n));
+  animation-iteration-count: infinite;
 }
-/* The text rolodexes use eased transitions (not steps) so the swap looks
-   like a smooth slide rather than a hard cut, while still landing on the
-   same item the icon shows. The trick: hold each item ~70% of its slot
-   then animate to the next. We approximate this with a many-stop
-   percentage-keyed keyframe generated for n=14 here; if the list grows
-   we adjust the timing. The icon rolodex stays on `steps()` because the
-   icon swap reads better as instantaneous. */
+.qa-scan-name-roll { animation-name: qa-scan-name-roll; }
+.qa-scan-desc-roll { animation-name: qa-scan-desc-roll; }
+
 .qa-scan-name-item,
 .qa-scan-desc-item {
-  height: 1.4em;
-  line-height: 1.4em;
   flex-shrink: 0;
+  width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
 }
 .qa-scan-name-item {
+  height: 1.4em;
+  line-height: 1.4em;
   font-size: 0.98rem;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.01em;
 }
 .qa-scan-desc-item {
+  height: 1.3em;
+  line-height: 1.3em;
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--text-muted);
   letter-spacing: -0.003em;
 }
-@keyframes qa-scan-text-roll {
-  /* 14 items × ~7.14% per slot. Each slot holds for 5% then transitions
-     over 2.14% to the next. Result: text feels like it slides smoothly
-     while the icon (on steps()) snaps in sync. */
-  0%    { transform: translateY(0); }
-  5%    { transform: translateY(0); }
-  7.14% { transform: translateY(-1.4em); }
-  12.14%{ transform: translateY(-1.4em); }
-  14.28%{ transform: translateY(-2.8em); }
-  19.28%{ transform: translateY(-2.8em); }
-  21.42%{ transform: translateY(-4.2em); }
-  26.42%{ transform: translateY(-4.2em); }
-  28.56%{ transform: translateY(-5.6em); }
-  33.56%{ transform: translateY(-5.6em); }
-  35.70%{ transform: translateY(-7.0em); }
-  40.70%{ transform: translateY(-7.0em); }
-  42.84%{ transform: translateY(-8.4em); }
-  47.84%{ transform: translateY(-8.4em); }
-  49.98%{ transform: translateY(-9.8em); }
-  54.98%{ transform: translateY(-9.8em); }
-  57.12%{ transform: translateY(-11.2em); }
-  62.12%{ transform: translateY(-11.2em); }
-  64.26%{ transform: translateY(-12.6em); }
-  69.26%{ transform: translateY(-12.6em); }
-  71.40%{ transform: translateY(-14.0em); }
-  76.40%{ transform: translateY(-14.0em); }
-  78.54%{ transform: translateY(-15.4em); }
-  83.54%{ transform: translateY(-15.4em); }
-  85.68%{ transform: translateY(-16.8em); }
-  90.68%{ transform: translateY(-16.8em); }
-  92.82%{ transform: translateY(-18.2em); }
-  97.82%{ transform: translateY(-18.2em); }
-  100%  { transform: translateY(-19.6em); }
+@keyframes qa-scan-name-roll {
+  from { transform: translateY(0); }
+  to   { transform: translateY(calc(-1.4em * var(--qa-scan-n))); }
+}
+@keyframes qa-scan-desc-roll {
+  from { transform: translateY(0); }
+  to   { transform: translateY(calc(-1.3em * var(--qa-scan-n))); }
 }
 
 /* Counter chip — small text version of "N checks" */
@@ -998,10 +992,12 @@ hr {
   .qa-prog-scanner { padding: 12px 14px; }
   .qa-scan-icon-wrap { width: 42px; height: 42px; }
   .qa-scan-icon-item {
-    width: 42px;
     height: 42px;
     font-size: 1.3rem;
   }
+  /* Re-declare the keyframe with the smaller frame height — @keyframes
+     defined inside @media correctly overrides the outer-scope one when
+     the viewport matches. */
   @keyframes qa-scan-icon-roll {
     from { transform: translateY(0); }
     to   { transform: translateY(calc(-42px * var(--qa-scan-n))); }
