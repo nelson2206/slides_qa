@@ -64,7 +64,31 @@ st.markdown(
 
 
 # ---------------------------------------------------------------------------
-# Header
+# Top nav — tabs above the hero so they read as primary navigation
+# ---------------------------------------------------------------------------
+
+tab_audit, tab_practices = st.tabs([
+    "🔎  Auditar deck",
+    "📋  Buenas prácticas",
+])
+
+# Render the static best-practices checklist first. Even if the audit flow
+# later calls st.stop(), this tab's content is already written to its container.
+with tab_practices:
+    st.markdown(
+        getattr(styles, "best_practices_html", lambda: "")(),
+        unsafe_allow_html=True,
+    )
+
+# Activate tab_audit for the rest of the script. We rely on __enter__ pushing
+# this tab onto Streamlit's container stack so every subsequent st.* call lands
+# inside it. The script ends with st.stop() / natural EOF — Streamlit cleans up
+# the container stack at the end of the run, so we don't call __exit__.
+tab_audit.__enter__()
+
+
+# ---------------------------------------------------------------------------
+# Hero (lives inside the Auditar tab)
 # ---------------------------------------------------------------------------
 
 styles.hero(
@@ -126,30 +150,6 @@ with st.sidebar:
         "↑ todo eso **+** action title quality · so-what · "
         "causa→consecuencia · storyline · análisis visual (opcional)."
     )
-
-
-# ---------------------------------------------------------------------------
-# Tabs — main flow lives in the first tab, MBB checklist in the second.
-# ---------------------------------------------------------------------------
-
-tab_audit, tab_practices = st.tabs([
-    "🔎  Auditar deck",
-    "📋  Buenas prácticas",
-])
-
-# Render the static best-practices checklist first. Even if the audit flow
-# later calls st.stop(), this tab's content is already written to its container.
-with tab_practices:
-    st.markdown(
-        getattr(styles, "best_practices_html", lambda: "")(),
-        unsafe_allow_html=True,
-    )
-
-# Activate tab_audit for the rest of the script. We rely on __enter__ pushing
-# this tab onto Streamlit's container stack so every subsequent st.* call lands
-# inside it. The script ends with st.stop() / natural EOF — Streamlit cleans up
-# the container stack at the end of the run, so we don't call __exit__.
-tab_audit.__enter__()
 
 
 # ---------------------------------------------------------------------------

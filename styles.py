@@ -283,30 +283,67 @@ section[data-testid="stSidebar"] {
 }
 
 /* ──────────────────────────────────────────────
-   Tabs — pink underline indicator
+   Tabs — top nav bar styled as a segmented pill control
    ────────────────────────────────────────────── */
+.stTabs {
+  margin: 0 0 1.6rem 0;
+}
 .stTabs [data-baseweb="tab-list"] {
-  gap: 0;
-  border-bottom: 1px solid var(--border);
+  gap: 4px !important;
+  border: 1px solid var(--border-soft) !important;
+  border-bottom: 1px solid var(--border-soft) !important;
+  padding: 5px !important;
+  background: linear-gradient(180deg, var(--surface-2) 0%, #f2ece6 100%);
+  border-radius: 100px !important;
+  display: inline-flex !important;
+  box-shadow: 0 1px 2px rgba(61,13,26,0.04), 0 4px 14px rgba(61,13,26,0.05);
+  width: auto !important;
+  min-width: 0 !important;
 }
 .stTabs [data-baseweb="tab"] {
-  background: transparent;
+  background: transparent !important;
   color: var(--text-muted) !important;
-  font-weight: 600;
-  padding: 12px 18px;
-  border-radius: 0;
+  font-weight: 600 !important;
+  padding: 8px 20px !important;
+  border-radius: 100px !important;
+  transition: background 180ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              color 180ms ease, transform 100ms ease !important;
+  min-height: auto !important;
+  height: auto !important;
+  border: 1px solid transparent !important;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+.stTabs [data-baseweb="tab"]:hover {
+  background: rgba(233,78,119,0.08) !important;
+  color: var(--text-primary) !important;
+}
+.stTabs [data-baseweb="tab"]:hover p {
+  color: var(--text-primary) !important;
+}
+.stTabs [data-baseweb="tab"]:active {
+  transform: scale(0.97);
 }
 .stTabs [data-baseweb="tab"] p {
   color: var(--text-muted) !important;
   font-weight: 600 !important;
+  font-size: 0.92rem !important;
+  margin: 0 !important;
+}
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+  background: linear-gradient(180deg, var(--accent) 0%, #d13d64 100%) !important;
+  box-shadow: 0 2px 8px rgba(233,78,119,0.35), 0 1px 0 rgba(255,255,255,0.4) inset;
 }
 .stTabs [data-baseweb="tab"][aria-selected="true"] p {
-  color: var(--text-primary) !important;
+  color: white !important;
+  font-weight: 700 !important;
 }
+/* Remove the default underline / border-bottom — pill state replaces it */
 .stTabs [data-baseweb="tab-highlight"] {
-  background: var(--accent) !important;
-  height: 2.5px !important;
-  border-radius: 2px;
+  display: none !important;
+}
+.stTabs [data-baseweb="tab-border"] {
+  display: none !important;
 }
 
 /* ──────────────────────────────────────────────
