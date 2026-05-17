@@ -250,7 +250,6 @@ def used_mode_safe():
 
 
 # Compact deck summary
-st.markdown("")
 getattr(styles, "scroll_anchor", lambda *a, **kw: None)("qa-after-upload")
 c1, c2 = st.columns(2)
 c1.metric("Slides", deck["slide_count"])
@@ -266,20 +265,24 @@ if st.session_state.get("_scrolled_after_upload") != file_hash:
 # Provider selector (main page) — only when at least one key is configured
 # ---------------------------------------------------------------------------
 
-st.markdown("")
 selected_provider: str | None = None
 api_key: str | None = None
 mode = "local"
 
 if available_providers:
-    styles.section_label("Modelo")
-    selected_provider = st.radio(
-        "Modelo",
-        options=available_providers,
-        format_func=lambda p: PROVIDER_LABELS.get(p, p),
-        horizontal=True,
-        label_visibility="collapsed",
-    )
+    if len(available_providers) == 1:
+        # Single provider: no need for a radio — render an inline caption.
+        selected_provider = available_providers[0]
+        styles.section_label(f"Modelo · {PROVIDER_LABELS.get(selected_provider, selected_provider)}")
+    else:
+        styles.section_label("Modelo")
+        selected_provider = st.radio(
+            "Modelo",
+            options=available_providers,
+            format_func=lambda p: PROVIDER_LABELS.get(p, p),
+            horizontal=True,
+            label_visibility="collapsed",
+        )
     api_key, _ = keys_status[selected_provider]
     mode = "full"
 
@@ -298,7 +301,6 @@ est = None
 deck_sections = detect_sections(deck)
 
 if mode == "full":
-    st.markdown("")
     styles.section_label("Opciones de la corrida")
 
     # Section picker — only if the deck has a clear index (≥2 dividers)
@@ -333,7 +335,6 @@ if mode == "full":
         for i, sec in enumerate(deck_sections):
             if not section_selected[i]:
                 skip_slide_numbers.update(sec["slide_numbers"])
-        st.markdown("")
 
     o1, o2 = st.columns(2)
     with o1:
@@ -385,10 +386,12 @@ if mode == "full":
         provider=selected_provider,
     )
 
+    # Escaped $ to avoid Streamlit interpreting them as LaTeX math mode.
+    # Plain markdown with backslash-escaped dollars renders correctly.
     st.caption(
-        f"Costo estimado · **${est['total_usd']:.3f}** "
-        f"({selected_provider}, {est['analyzed_count']} slides, "
-        f"~${est['visual_usd']:.3f} visión)"
+        f"Costo estimado · **\\${est['total_usd']:.3f}** · "
+        f"{selected_provider} · {est['analyzed_count']} slides · "
+        f"\\${est['visual_usd']:.3f} visión"
     )
 
 
@@ -408,7 +411,6 @@ else:
 
 can_run = (mode == "local") or (mode == "full" and api_key)
 
-st.markdown("")
 run_button = st.button(run_label, type="primary", use_container_width=True, disabled=not can_run)
 
 

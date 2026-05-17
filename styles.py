@@ -88,6 +88,13 @@ CSS = """
   .stMainBlockContainer { padding-top: 1rem !important; }
 }
 
+/* Tighten the vertical rhythm between top-level Streamlit elements.
+   Streamlit's default gap inside vertical blocks is ~1rem — too generous
+   for our dense layout. Pull it in by ~40%. */
+[data-testid="stMainBlockContainer"] [data-testid="stVerticalBlock"] {
+  gap: 0.55rem !important;
+}
+
 /* Hide Streamlit's default top header/toolbar (hamburger menu, "Made with
    Streamlit" status, etc.) — for end-user-facing branding we don't want
    those affordances. */
@@ -245,9 +252,9 @@ section[data-testid="stSidebar"] {
     radial-gradient(ellipse 60% 80% at 100% 0%, rgba(233,78,119,0.06) 0%, transparent 60%),
     linear-gradient(178deg, #ffffff 0%, var(--surface-2) 100%);
   border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  padding: 18px 22px;
-  box-shadow: 0 1px 2px rgba(61,13,26,0.04), 0 4px 12px rgba(61,13,26,0.05);
+  border-radius: 12px;
+  padding: 12px 18px 14px;
+  box-shadow: 0 1px 2px rgba(61,13,26,0.04), 0 3px 8px rgba(61,13,26,0.04);
   transition: transform 180ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
               box-shadow 180ms ease, border-color 180ms ease;
   overflow: hidden;
@@ -270,14 +277,14 @@ section[data-testid="stSidebar"] {
 }
 [data-testid="stMetricLabel"] p {
   color: var(--text-muted) !important;
-  font-size: 0.68rem !important;
+  font-size: 0.66rem !important;
   font-weight: 700 !important;
   text-transform: uppercase;
   letter-spacing: 0.10em;
-  margin-bottom: 6px !important;
+  margin-bottom: 2px !important;
 }
 [data-testid="stMetricValue"] {
-  font-size: 2.1rem !important;
+  font-size: 1.65rem !important;
   font-weight: 800 !important;
   color: var(--text-primary) !important;
   letter-spacing: -0.028em;
@@ -403,7 +410,7 @@ section[data-testid="stSidebar"] {
     linear-gradient(180deg, #ffffff 0%, var(--surface-2) 100%);
   border: 2px dashed rgba(233,78,119,0.32);
   border-radius: 14px;
-  padding: 28px 24px;
+  padding: 18px 22px;
   transition: transform 180ms ease, border-color 180ms ease,
               box-shadow 180ms ease, background 180ms ease;
 }
@@ -515,14 +522,14 @@ hr {
 .qa-section-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.7rem;
+  gap: 7px;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.10em;
   font-weight: 700;
   color: var(--text-muted);
-  margin-bottom: 0.6rem;
-  padding-bottom: 4px;
+  margin-bottom: 0.25rem;
+  padding-bottom: 0;
 }
 .qa-section-label::before {
   content: "";
