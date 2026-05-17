@@ -911,7 +911,15 @@ hr {
   to   { transform: translateY(calc(-52px * var(--qa-scan-n))); }
 }
 
-/* ── Text rolodexes (name + description in sync with icon) ── */
+/* ── Text rolodexes (name + description in sync with icon) ──
+   IMPORTANT: every rolodex (wrap height, item height, line-height,
+   keyframe translation) is in absolute pixels — NOT em — because em
+   resolves against the font-size of each rule's element. The item has
+   a smaller font-size than the wrap, so `1.3em` on the wrap and `1.3em`
+   on the item compute to different pixel values, and the keyframe
+   translation in em resolves against yet a third font-size. With
+   absolute pixels we guarantee: wrap height = item height = keyframe
+   translation per step. No partial-frame bleed below the visible item. */
 .qa-scan-text {
   flex: 1;
   min-width: 0;
@@ -926,11 +934,8 @@ hr {
   overflow: hidden;
   width: 100%;
 }
-/* Wraps are sized to exactly one item height (no descender clipping —
-   we use 1.5em line-height with matching item height so glyphs with
-   descenders like "página" don't get cut off). */
-.qa-scan-name-wrap { height: 1.4em; }
-.qa-scan-desc-wrap { height: 1.3em; }
+.qa-scan-name-wrap { height: 24px; }
+.qa-scan-desc-wrap { height: 22px; }
 
 .qa-scan-name-roll,
 .qa-scan-desc-roll {
@@ -958,28 +963,28 @@ hr {
   align-items: center;
 }
 .qa-scan-name-item {
-  height: 1.4em;
-  line-height: 1.4em;
-  font-size: 0.98rem;
+  height: 24px;
+  line-height: 24px;
+  font-size: 15.7px;      /* matches 0.98rem at 16px root */
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.01em;
 }
 .qa-scan-desc-item {
-  height: 1.3em;
-  line-height: 1.3em;
-  font-size: 0.78rem;
+  height: 22px;
+  line-height: 22px;
+  font-size: 12.5px;      /* matches 0.78rem at 16px root */
   font-weight: 500;
   color: var(--text-muted);
   letter-spacing: -0.003em;
 }
 @keyframes qa-scan-name-roll {
   from { transform: translateY(0); }
-  to   { transform: translateY(calc(-1.4em * var(--qa-scan-n))); }
+  to   { transform: translateY(calc(-24px * var(--qa-scan-n))); }
 }
 @keyframes qa-scan-desc-roll {
   from { transform: translateY(0); }
-  to   { transform: translateY(calc(-1.3em * var(--qa-scan-n))); }
+  to   { transform: translateY(calc(-22px * var(--qa-scan-n))); }
 }
 
 /* Counter chip — small text version of "N checks" */
