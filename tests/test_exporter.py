@@ -92,11 +92,41 @@ def test_export_annotated_pptx_writes_notes_and_summary_slide(bad_deck_path):
             break  # skip the summary slide we appended
         notes_text = slide.notes_slide.notes_text_frame.text
         assert "HOLMES REVIEW" in notes_text, f"Slide {i+1} missing Holmes notes"
+        # And the slide-specific number should be in this slide's notes,
+        # not just slide 1's. Regression guard for the python-pptx text-setter
+        # bug where all notes ended up as one blob in slide 1.
+        assert f"Slide {i + 1}" in notes_text, (
+            f"Slide {i+1} notes don't reference slide number "
+            f"(actual: {notes_text[:200]!r})"
+        )
 
     # Summary slide title
     summary_slide = out_deck.slides[-1]
     if summary_slide.shapes.title is not None:
         assert summary_slide.shapes.title.text == "Holmes Review"
+
+
+def test_export_annotated_pptx_creates_multiple_paragraphs(bad_deck_path):
+    """python-pptx's text_frame.text setter only sets the first paragraph —
+    multi-line Holmes notes must be emitted as separate paragraphs so
+    PowerPoint actually renders the line breaks."""
+    deck = Presentation(str(bad_deck_path))
+    original_slide_count = len(deck.slides)
+    result = _fake_result(list(range(1, original_slide_count + 1)))
+
+    out_bytes = export_annotated_pptx(str(bad_deck_path), result)
+    out_deck = Presentation(io.BytesIO(out_bytes))
+
+    for i, slide in enumerate(out_deck.slides):
+        if i == original_slide_count:
+            break
+        tf = slide.notes_slide.notes_text_frame
+        # Each slide's notes should have many paragraphs (header line, blank
+        # lines, score line, summary, per-check blocks). Bare minimum > 3.
+        assert len(tf.paragraphs) > 3, (
+            f"Slide {i+1} notes have only {len(tf.paragraphs)} paragraph(s); "
+            "python-pptx may have collapsed them into a single blob."
+        )
 
 
 def test_export_annotated_pptx_preserves_existing_notes(bad_deck_path):

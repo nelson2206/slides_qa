@@ -198,11 +198,37 @@ def _format_overview_summary(result: dict[str, Any]) -> str:
 
 
 def _set_notes_text(slide, text: str) -> None:
-    """Replace the speaker notes text of a slide with `text`."""
+    """Replace the speaker notes text of a slide with `text`.
+
+    NOTE: python-pptx's `text_frame.text = "..."` setter puts the entire
+    string into a single run of a single paragraph — literal '\\n' chars
+    survive in the run but PowerPoint does NOT render them as line breaks.
+    We must split on \\n and emit one paragraph per line so PowerPoint
+    actually shows the structured notes.
+    """
     notes_slide = slide.notes_slide  # creates one if absent
     tf = notes_slide.notes_text_frame
-    # Wipe and rewrite
-    tf.text = text
+
+    # Clear any existing content so we don't accumulate paragraphs from
+    # earlier calls or from the original deck's notes.
+    tf.clear()
+
+    lines = text.split("\n") if text else [""]
+    if not lines:
+        return
+
+    # The first paragraph already exists after .clear() — reuse it.
+    first_para = tf.paragraphs[0]
+    if first_para.runs:
+        first_para.runs[0].text = lines[0]
+    else:
+        first_para.text = lines[0]
+
+    # Each subsequent line becomes its own paragraph so the line breaks
+    # render correctly in the PowerPoint notes pane.
+    for line in lines[1:]:
+        p = tf.add_paragraph()
+        p.text = line
 
 
 def _append_summary_slide(prs: Presentation, summary_text: str) -> None:

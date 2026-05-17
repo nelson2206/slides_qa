@@ -67,9 +67,10 @@ st.markdown(
 # Top nav — tabs above the hero so they read as primary navigation
 # ---------------------------------------------------------------------------
 
-tab_audit, tab_practices = st.tabs([
+tab_audit, tab_practices, tab_actions = st.tabs([
     "🔎  Auditar deck",
     "📋  Buenas prácticas",
+    "🛠️  Acciones Holmes",
 ])
 
 # Render the static best-practices checklist first. Even if the audit flow
@@ -79,6 +80,233 @@ with tab_practices:
         getattr(styles, "best_practices_html", lambda: "")(),
         unsafe_allow_html=True,
     )
+
+# Render Acciones Holmes second — pulls everything from session_state, so it
+# works on the rerun after an analysis even if the audit flow then stops.
+with tab_actions:
+    _cached_result = st.session_state.get("qa_result")
+    if _cached_result is None:
+        st.markdown(
+            '<div style="padding: 24px 28px; background: var(--surface-2); '
+            'border: 1px solid var(--border-soft); border-radius: 14px; '
+            'color: var(--text-muted); line-height: 1.55;">'
+            '<strong style="color: var(--text);">No hay análisis cargado todavía.</strong><br>'
+            'Andá al tab <strong>🔎 Auditar deck</strong>, subí un <code>.pptx</code> '
+            'y corré el análisis. Las acciones (descargar review anotado, '
+            'aplicar fixes, comparar versiones) van a quedar disponibles acá.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        # Lazy imports — only needed when Acciones is rendered with a result
+        from exporter import (
+            apply_quick_fixes,
+            available_fixes_for_slide,
+            export_annotated_pptx,
+        )
+        from comparator import compare_results
+
+        _cached_hash = st.session_state.get("qa_file_hash", "")
+        _cached_filename = st.session_state.get(
+            f"pptx_filename__{_cached_hash}", "deck.pptx",
+        )
+        _cached_pptx_bytes = st.session_state.get(f"pptx_bytes__{_cached_hash}")
+        _cached_slides = _cached_result.get("slides") or []
+
+        def _write_temp_pptx_for_actions(b: bytes) -> Path:
+            with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as t:
+                t.write(b)
+                return Path(t.name)
+
+        _action_subtabs = st.tabs([
+            "📥 Descargar review",
+            "🛠️ Aplicar fixes",
+            "🔁 Comparar versiones",
+        ])
+
+        # ----- 1) Descargar review anotado -----
+        with _action_subtabs[0]:
+            st.markdown(
+                "Holmes inyecta sus findings en las **speaker notes** de cada "
+                "slide (sin tocar el contenido visual) y agrega un slide final "
+                "con el resumen del deck. Abrí el archivo en PowerPoint para "
+                "ver el review inline."
+            )
+            if not _cached_pptx_bytes:
+                st.warning("No tengo los bytes del deck cacheados — subí el archivo de nuevo.")
+            else:
+                if st.button("Generar review anotado", type="primary", key="gen_review_top"):
+                    with st.spinner("Anotando deck…"):
+                        src_path = _write_temp_pptx_for_actions(_cached_pptx_bytes)
+                        try:
+                            annotated_bytes = export_annotated_pptx(str(src_path), _cached_result)
+                        finally:
+                            try: src_path.unlink()
+                            except OSError: pass
+                    out_name = _cached_filename.replace(".pptx", "") + "_Holmes_review.pptx"
+                    st.success(f"Review listo · {len(annotated_bytes) // 1024} KB")
+                    st.download_button(
+                        "⬇️ Descargar .pptx anotado",
+                        data=annotated_bytes,
+                        file_name=out_name,
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        key="dl_review_top",
+                    )
+
+        # ----- 2) Aplicar fixes -----
+        with _action_subtabs[1]:
+            all_fixes: list[dict] = []
+            for s in _cached_slides:
+                all_fixes.extend(available_fixes_for_slide(s))
+
+            if not all_fixes:
+                st.info(
+                    "Holmes no identificó fixes auto-aplicables en este deck. "
+                    "Las sugerencias de redacción más complejas siguen requiriendo "
+                    "edición manual."
+                )
+            elif not _cached_pptx_bytes:
+                st.warning("No tengo los bytes del deck cacheados — subí el archivo de nuevo.")
+            else:
+                st.markdown(
+                    f"**{len(all_fixes)}** fixes auto-aplicables disponibles. "
+                    "Seleccioná los que querés que Holmes aplique y descargá el "
+                    "deck modificado."
+                )
+                fixes_by_slide: dict[int, list[dict]] = {}
+                for f in all_fixes:
+                    fixes_by_slide.setdefault(f["slide_number"], []).append(f)
+
+                selected_keys: set[str] = set()
+                for n in sorted(fixes_by_slide.keys()):
+                    with st.expander(f"Slide {n} · {len(fixes_by_slide[n])} fix(es)"):
+                        for f in fixes_by_slide[n]:
+                            key = f"fix_top__{_cached_hash}__{n}__{f['id']}"
+                            checked = st.checkbox(f["label"], value=True, key=key)
+                            st.caption(f"Antes:  {f['preview_before'][:120]}")
+                            st.caption(f"Después: {f['preview_after'][:120]}")
+                            if checked:
+                                selected_keys.add(key)
+
+                to_apply: list[dict] = []
+                for n, fix_list in fixes_by_slide.items():
+                    for f in fix_list:
+                        key = f"fix_top__{_cached_hash}__{n}__{f['id']}"
+                        if key in selected_keys:
+                            to_apply.append(f)
+
+                if st.button(
+                    f"Aplicar {len(to_apply)} fix(es) y descargar",
+                    type="primary",
+                    disabled=(len(to_apply) == 0),
+                    key="apply_fixes_top",
+                ):
+                    with st.spinner("Aplicando fixes…"):
+                        src_path = _write_temp_pptx_for_actions(_cached_pptx_bytes)
+                        try:
+                            fixed_bytes, report = apply_quick_fixes(
+                                str(src_path), _cached_result, to_apply,
+                            )
+                        finally:
+                            try: src_path.unlink()
+                            except OSError: pass
+                    out_name = _cached_filename.replace(".pptx", "") + "_Holmes_fixed.pptx"
+                    counts = report["counts"]
+                    if counts["failed"]:
+                        st.warning(
+                            f"{counts['applied']}/{counts['total_requested']} aplicados · "
+                            f"{counts['failed']} fallaron."
+                        )
+                        for f in report["failed"][:10]:
+                            st.caption(f"Slide {f['slide_number']} · {f['id']} · {f['reason']}")
+                    else:
+                        st.success(f"{counts['applied']} fixes aplicados.")
+                    st.download_button(
+                        "⬇️ Descargar .pptx con fixes aplicados",
+                        data=fixed_bytes,
+                        file_name=out_name,
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        key="dl_fixed_top",
+                    )
+
+        # ----- 3) Comparar versiones -----
+        with _action_subtabs[2]:
+            st.markdown(
+                "Subí una **versión posterior** del deck (después de aplicar "
+                "feedback) y Holmes te muestra qué slides mejoraron, cuáles "
+                "regresionaron y el cambio en el score promedio."
+            )
+            v2_upload = st.file_uploader(
+                "Versión 2 del deck", type=["pptx"], key="v2_uploader_top",
+                label_visibility="collapsed",
+            )
+
+            if v2_upload is not None:
+                v2_bytes = v2_upload.getvalue()
+                v2_hash = hashlib.sha1(v2_bytes).hexdigest()[:16]
+                v2_cache_key = f"qa_result_v2__{v2_hash}"
+                if v2_cache_key in st.session_state:
+                    v2_result = st.session_state[v2_cache_key]
+                else:
+                    with st.spinner("Analizando versión 2 (modo local)…"):
+                        tmp_v2 = _write_temp_pptx_for_actions(v2_bytes)
+                        try:
+                            deck_v2 = extract_deck(tmp_v2)
+                        finally:
+                            try: tmp_v2.unlink()
+                            except OSError: pass
+                        v2_result = None
+                        for kind, payload in run_local_qa(v2_upload.name, deck_v2):
+                            if kind == "result":
+                                v2_result = payload
+                        if v2_result is None:
+                            st.error("No se pudo analizar la versión 2.")
+                            st.stop()
+                        st.session_state[v2_cache_key] = v2_result
+
+                diff = compare_results(_cached_result, v2_result)
+                agg = diff["aggregate"]
+                delta = agg["score_delta"]
+                delta_str = f"{delta:+.1f}"
+                sign_color = "#2dba8a" if delta > 0 else "#e94e77" if delta < 0 else "var(--text-muted)"
+
+                st.markdown(
+                    f'<div style="display:flex;gap:24px;align-items:baseline;margin:14px 0 18px 0;">'
+                    f'<div><span style="font-size:0.7rem;text-transform:uppercase;'
+                    f'letter-spacing:0.10em;color:var(--text-muted);font-weight:700">Score promedio</span><br>'
+                    f'<span style="font-size:1.8rem;font-weight:800;">{agg["score_v1"]:.1f}</span>'
+                    f'<span style="color:var(--text-muted);"> → </span>'
+                    f'<span style="font-size:1.8rem;font-weight:800;">{agg["score_v2"]:.1f}</span>'
+                    f' <span style="color:{sign_color};font-weight:700;margin-left:8px;">{delta_str}</span></div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+                c1, c2, c3 = st.columns(3)
+                c1.metric("✓ Mejoraron", len(diff["improved"]))
+                c2.metric("✗ Regresionaron", len(diff["regressed"]))
+                c3.metric("Sin cambio", len(diff["unchanged"]))
+
+                if diff["improved"]:
+                    with st.expander(f"Mejoraron ({len(diff['improved'])})", expanded=True):
+                        for row in diff["improved"][:25]:
+                            st.markdown(
+                                f"**{row['label']}** · {row['severity_v1']} → {row['severity_v2']} "
+                                f"· score {row['score_v1']}→{row['score_v2']}"
+                            )
+                if diff["regressed"]:
+                    with st.expander(f"Regresionaron ({len(diff['regressed'])})", expanded=True):
+                        for row in diff["regressed"][:25]:
+                            st.markdown(
+                                f"**{row['label']}** · {row['severity_v1']} → {row['severity_v2']} "
+                                f"· score {row['score_v1']}→{row['score_v2']}"
+                            )
+                if diff["added"] or diff["removed"]:
+                    with st.expander(f"Estructura del deck ({len(diff['added'])} agregados · {len(diff['removed'])} eliminados)"):
+                        for row in diff["added"]:
+                            st.markdown(f"➕ **{row['label']}** · {row['severity_v2']}")
+                        for row in diff["removed"]:
+                            st.markdown(f"➖ **{row['label']}**")
 
 # Activate tab_audit for the rest of the script. We rely on __enter__ pushing
 # this tab onto Streamlit's container stack so every subsequent st.* call lands
@@ -797,229 +1025,10 @@ if overview.get("visual_analysis_enabled"):
         )
 
 # ---------------------------------------------------------------------------
-# Acciones Holmes — descargar review anotado · aplicar fixes · comparar versiones
+# Acciones Holmes — now lives in the top-level tab `tab_actions` (see beginning
+# of the file). What follows used to be the inline version; the duplicate
+# section has been removed in favour of the top-tab UI.
 # ---------------------------------------------------------------------------
-
-from exporter import (  # noqa: E402  (deferred import — runs only after analysis)
-    apply_quick_fixes,
-    available_fixes_for_slide,
-    export_annotated_pptx,
-)
-from comparator import compare_results  # noqa: E402
-
-st.markdown("---")
-styles.section_label("Acciones Holmes")
-
-_pptx_bytes_cached = st.session_state.get(f"pptx_bytes__{file_hash}")
-
-
-def _write_temp_pptx(b: bytes) -> Path:
-    with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as t:
-        t.write(b)
-        return Path(t.name)
-
-
-_action_tabs = st.tabs([
-    "📥 Descargar review",
-    "🛠️ Aplicar fixes",
-    "🔁 Comparar versiones",
-])
-
-# ----- 1) Descargar review anotado -----
-with _action_tabs[0]:
-    st.markdown(
-        "Holmes inyecta sus findings en las **speaker notes** de cada slide "
-        "(sin tocar el contenido visual) y agrega un slide final con el "
-        "resumen del deck. Abrí el archivo en PowerPoint para ver el review "
-        "inline."
-    )
-    if not _pptx_bytes_cached:
-        st.warning("No tengo los bytes del deck cacheados — subí el archivo de nuevo.")
-    else:
-        if st.button("Generar review anotado", type="primary"):
-            with st.spinner("Anotando deck…"):
-                src_path = _write_temp_pptx(_pptx_bytes_cached)
-                try:
-                    annotated_bytes = export_annotated_pptx(str(src_path), result)
-                finally:
-                    try: src_path.unlink()
-                    except OSError: pass
-            out_name = (
-                st.session_state.get(f"pptx_filename__{file_hash}", file_name)
-                .replace(".pptx", "")
-                + "_Holmes_review.pptx"
-            )
-            st.success(f"Review listo · {len(annotated_bytes) // 1024} KB")
-            st.download_button(
-                "⬇️ Descargar .pptx anotado",
-                data=annotated_bytes,
-                file_name=out_name,
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            )
-
-# ----- 2) Aplicar fixes -----
-with _action_tabs[1]:
-    # Collect available fixes from every slide finding
-    all_fixes: list[dict] = []
-    for s in slides:
-        all_fixes.extend(available_fixes_for_slide(s))
-
-    if not all_fixes:
-        st.info("Holmes no identificó fixes auto-aplicables en este deck. "
-                "Las sugerencias de redacción más complejas siguen requiriendo "
-                "edición manual.")
-    elif not _pptx_bytes_cached:
-        st.warning("No tengo los bytes del deck cacheados — subí el archivo de nuevo.")
-    else:
-        st.markdown(
-            f"**{len(all_fixes)}** fixes auto-aplicables disponibles. "
-            "Seleccioná los que querés que Holmes aplique y descargá el "
-            "deck modificado."
-        )
-        # Group by slide for cleaner display
-        fixes_by_slide: dict[int, list[dict]] = {}
-        for f in all_fixes:
-            fixes_by_slide.setdefault(f["slide_number"], []).append(f)
-
-        selected_keys: set[str] = set()
-        for n in sorted(fixes_by_slide.keys()):
-            with st.expander(f"Slide {n} · {len(fixes_by_slide[n])} fix(es)"):
-                for f in fixes_by_slide[n]:
-                    key = f"fix__{file_hash}__{n}__{f['id']}"
-                    checked = st.checkbox(
-                        f["label"], value=True, key=key,
-                    )
-                    st.caption(f"Antes:  {f['preview_before'][:120]}")
-                    st.caption(f"Después: {f['preview_after'][:120]}")
-                    if checked:
-                        selected_keys.add(key)
-
-        # Re-collect selected fix objects
-        to_apply: list[dict] = []
-        for n, fix_list in fixes_by_slide.items():
-            for f in fix_list:
-                key = f"fix__{file_hash}__{n}__{f['id']}"
-                if key in selected_keys:
-                    to_apply.append(f)
-
-        st.markdown("")
-        if st.button(
-            f"Aplicar {len(to_apply)} fix(es) y descargar",
-            type="primary",
-            disabled=(len(to_apply) == 0),
-        ):
-            with st.spinner("Aplicando fixes…"):
-                src_path = _write_temp_pptx(_pptx_bytes_cached)
-                try:
-                    fixed_bytes, report = apply_quick_fixes(
-                        str(src_path), result, to_apply,
-                    )
-                finally:
-                    try: src_path.unlink()
-                    except OSError: pass
-            out_name = (
-                st.session_state.get(f"pptx_filename__{file_hash}", file_name)
-                .replace(".pptx", "")
-                + "_Holmes_fixed.pptx"
-            )
-            counts = report["counts"]
-            if counts["failed"]:
-                st.warning(
-                    f"{counts['applied']}/{counts['total_requested']} aplicados · "
-                    f"{counts['failed']} fallaron."
-                )
-                for f in report["failed"][:10]:
-                    st.caption(f"Slide {f['slide_number']} · {f['id']} · {f['reason']}")
-            else:
-                st.success(f"{counts['applied']} fixes aplicados.")
-            st.download_button(
-                "⬇️ Descargar .pptx con fixes aplicados",
-                data=fixed_bytes,
-                file_name=out_name,
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            )
-
-# ----- 3) Comparar versiones -----
-with _action_tabs[2]:
-    st.markdown(
-        "Subí una **versión posterior** del deck (después de aplicar feedback) "
-        "y Holmes te muestra qué slides mejoraron, cuáles regresionaron y el "
-        "cambio en el score promedio."
-    )
-    v2_upload = st.file_uploader(
-        "Versión 2 del deck", type=["pptx"], key="v2_uploader",
-        label_visibility="collapsed",
-    )
-
-    if v2_upload is not None:
-        v2_bytes = v2_upload.getvalue()
-        v2_hash = hashlib.sha1(v2_bytes).hexdigest()[:16]
-
-        # Cache the v2 result so we don't re-analyze on every rerun
-        v2_cache_key = f"qa_result_v2__{v2_hash}"
-        if v2_cache_key in st.session_state:
-            v2_result = st.session_state[v2_cache_key]
-        else:
-            with st.spinner("Analizando versión 2 (modo local)…"):
-                tmp_v2 = _write_temp_pptx(v2_bytes)
-                try:
-                    deck_v2 = extract_deck(tmp_v2)
-                finally:
-                    try: tmp_v2.unlink()
-                    except OSError: pass
-                v2_result = None
-                for kind, payload in run_local_qa(v2_upload.name, deck_v2):
-                    if kind == "result":
-                        v2_result = payload
-                if v2_result is None:
-                    st.error("No se pudo analizar la versión 2.")
-                    st.stop()
-                st.session_state[v2_cache_key] = v2_result
-
-        diff = compare_results(result, v2_result)
-        agg = diff["aggregate"]
-        delta = agg["score_delta"]
-        delta_str = f"{delta:+.1f}"
-        sign_color = "#2dba8a" if delta > 0 else "#e94e77" if delta < 0 else "var(--text-muted)"
-
-        st.markdown(
-            f'<div style="display:flex;gap:24px;align-items:baseline;margin:14px 0 18px 0;">'
-            f'<div><span style="font-size:0.7rem;text-transform:uppercase;'
-            f'letter-spacing:0.10em;color:var(--text-muted);font-weight:700">Score promedio</span><br>'
-            f'<span style="font-size:1.8rem;font-weight:800;">{agg["score_v1"]:.1f}</span>'
-            f'<span style="color:var(--text-muted);"> → </span>'
-            f'<span style="font-size:1.8rem;font-weight:800;">{agg["score_v2"]:.1f}</span>'
-            f' <span style="color:{sign_color};font-weight:700;margin-left:8px;">{delta_str}</span></div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric("✓ Mejoraron", len(diff["improved"]))
-        c2.metric("✗ Regresionaron", len(diff["regressed"]))
-        c3.metric("Sin cambio", len(diff["unchanged"]))
-
-        if diff["improved"]:
-            with st.expander(f"Mejoraron ({len(diff['improved'])})", expanded=True):
-                for row in diff["improved"][:25]:
-                    st.markdown(
-                        f"**{row['label']}** · {row['severity_v1']} → {row['severity_v2']} "
-                        f"· score {row['score_v1']}→{row['score_v2']}"
-                    )
-        if diff["regressed"]:
-            with st.expander(f"Regresionaron ({len(diff['regressed'])})", expanded=True):
-                for row in diff["regressed"][:25]:
-                    st.markdown(
-                        f"**{row['label']}** · {row['severity_v1']} → {row['severity_v2']} "
-                        f"· score {row['score_v1']}→{row['score_v2']}"
-                    )
-        if diff["added"] or diff["removed"]:
-            with st.expander(f"Estructura del deck ({len(diff['added'])} agregados · {len(diff['removed'])} eliminados)"):
-                for row in diff["added"]:
-                    st.markdown(f"➕ **{row['label']}** · {row['severity_v2']}")
-                for row in diff["removed"]:
-                    st.markdown(f"➖ **{row['label']}**")
-
 
 # Token usage
 if "usage" in result:
