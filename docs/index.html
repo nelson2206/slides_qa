@@ -16,22 +16,26 @@
   <meta property="og:site_name" content="Holmes">
   <meta property="og:locale" content="es_ES">
 
-  <!-- Square 1200×1200 — listed FIRST because WhatsApp's preview thumbnail
-       picks the first og:image and crops/composes squarely. -->
-  <meta property="og:image" content="https://nelson2206.github.io/slides_qa/og-image-square.png">
-  <meta property="og:image:secure_url" content="https://nelson2206.github.io/slides_qa/og-image-square.png">
-  <meta property="og:image:type" content="image/png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="1200">
-  <meta property="og:image:alt" content="Holmes — El detective de tus decks">
-
-  <!-- Landscape 1200×630 — fallback for Facebook / LinkedIn / Slack / Telegram
-       which render rich cards in landscape. -->
+  <!-- Landscape 1200×630 — listed FIRST. WhatsApp picks the first og:image,
+       and a near-1.91:1 ratio with explicit width/height + secure_url is what
+       triggers WhatsApp's RICH (full-width banner) preview instead of the
+       small square thumbnail. Also serves Facebook / LinkedIn / Slack /
+       Telegram / Discord which all expect landscape. -->
   <meta property="og:image" content="https://nelson2206.github.io/slides_qa/og-image.png">
   <meta property="og:image:secure_url" content="https://nelson2206.github.io/slides_qa/og-image.png">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Holmes — El detective de tus decks">
+
+  <!-- Square 1200×1200 — secondary; kept as a fallback for chat apps that
+       prefer square thumbnails (older WhatsApp clients, some Slack themes).
+       Listed AFTER landscape so it doesn't override the rich-preview hint. -->
+  <meta property="og:image" content="https://nelson2206.github.io/slides_qa/og-image-square.png">
+  <meta property="og:image:secure_url" content="https://nelson2206.github.io/slides_qa/og-image-square.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="1200">
   <meta property="og:image:alt" content="Holmes — El detective de tus decks">
 
   <!-- Twitter / X -->
