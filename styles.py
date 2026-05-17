@@ -744,76 +744,270 @@ hr {
   50%      { opacity: 1; }
 }
 
-/* ───── Holmes 'checking…' rolodex ─────
-   Single-line row with prefix + vertically-cycling label. Pure CSS — no
-   coordination with Python's actual progress is needed since the checks
-   run too fast (<200ms per slide) to instrument individually. The cycler
-   sells the feel of Holmes working through his checklist. */
-.qa-prog-cycler-row {
+/* ───── Holmes "investigando" scanner card ─────
+   Prominent card with 3 synchronized vertically-cycling rolodexes (icon,
+   name, description) so each tick reveals a rich check with context. A
+   horizontal scan-line sweeps the card so it always looks alive, even
+   though python-side audit progress isn't instrumented per-check (the
+   checks run too fast — <200ms per slide — to wire telemetry to).
+
+   The animation cadence is parameterized via the `--qa-scan-n` CSS
+   variable set on `.qa-prog-scanner`, so changing the number of checks
+   in the Python list automatically rescales the keyframes. Each check
+   gets 1.6s of stage time. */
+
+.qa-prog-scanner {
+  --qa-scan-n: 14;
+  --qa-scan-step: 1.6s;
+  --qa-scan-duration: calc(var(--qa-scan-n) * var(--qa-scan-step));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  margin-top: 12px;
+  background: linear-gradient(135deg,
+    rgba(233, 78, 119, 0.04) 0%,
+    rgba(244, 241, 236, 0.6) 100%);
+  border: 1px solid rgba(233, 78, 119, 0.14);
+  border-radius: 14px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Horizontal scan-line sweeping left → right behind the content */
+.qa-prog-scanner-sweep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(233, 78, 119, 0.0) 30%,
+    rgba(233, 78, 119, 0.12) 50%,
+    rgba(233, 78, 119, 0.0) 70%,
+    transparent 100%);
+  transform: translateX(-100%);
+  animation: qa-scan-sweep 2.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  z-index: 0;
+}
+@keyframes qa-scan-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Header: eyebrow + radar + counter */
+.qa-prog-scanner-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.84rem;
-  color: var(--text);
-  letter-spacing: -0.005em;
-  font-weight: 500;
-  padding: 4px 0;
-  margin-top: 2px;
-}
-.qa-prog-cycler-prefix {
-  color: var(--text-muted);
-  font-weight: 600;
-  white-space: nowrap;
-}
-.qa-prog-cycler {
-  display: inline-block;
+  justify-content: space-between;
+  gap: 12px;
   position: relative;
-  height: 1.4em;
-  line-height: 1.4em;
-  overflow: hidden;
-  flex: 1;
-  min-width: 0;
-  vertical-align: middle;
-  mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+  z-index: 1;
 }
-.qa-prog-cycler-list {
-  display: block;
-  animation: qa-cycler-roll 14s steps(14) infinite;
-}
-.qa-prog-cycler-item {
-  display: block;
-  height: 1.4em;
-  line-height: 1.4em;
-  color: var(--accent);
-  font-weight: 700;
-  letter-spacing: -0.008em;
-}
-@keyframes qa-cycler-roll {
-  0%   { transform: translateY(0); }
-  100% { transform: translateY(-19.6em); }
-}
-/* 14 items * 1.4em = 19.6em — list scrolls one full cycle then repeats */
-
-.qa-prog-cycler-dots {
+.qa-prog-scanner-eyebrow {
   display: inline-flex;
-  gap: 3px;
   align-items: center;
-  flex-shrink: 0;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
 }
-.qa-prog-cycler-dots span {
-  width: 4px;
-  height: 4px;
+.qa-prog-scanner-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Pulsing radar dot */
+.qa-scan-radar {
+  position: relative;
+  width: 8px;
+  height: 8px;
   border-radius: 100px;
   background: var(--accent);
-  opacity: 0.3;
-  animation: qa-cycler-dots 1.4s ease-in-out infinite;
+  flex-shrink: 0;
 }
-.qa-prog-cycler-dots span:nth-child(2) { animation-delay: 0.2s; }
-.qa-prog-cycler-dots span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes qa-cycler-dots {
-  0%, 80%, 100% { opacity: 0.3; transform: scale(0.85); }
-  40%           { opacity: 1;   transform: scale(1.15); }
+.qa-scan-radar::before,
+.qa-scan-radar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 100px;
+  background: var(--accent);
+  animation: qa-scan-radar 1.8s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+}
+.qa-scan-radar::after { animation-delay: 0.9s; }
+@keyframes qa-scan-radar {
+  0%   { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(3.5); opacity: 0; }
+}
+
+/* Body: large icon + (name + description) text stack */
+.qa-prog-scanner-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ── Icon rolodex ── */
+.qa-scan-icon-wrap {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  background: white;
+  border: 1px solid rgba(233, 78, 119, 0.18);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(233, 78, 119, 0.08),
+              inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  position: relative;
+}
+.qa-scan-icon-roll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: qa-scan-icon-roll var(--qa-scan-duration)
+             steps(var(--qa-scan-n)) infinite;
+}
+.qa-scan-icon-item {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  line-height: 1;
+  /* Aa fallback for the casing check looks better in serif weight */
+  font-weight: 700;
+  color: var(--accent);
+}
+@keyframes qa-scan-icon-roll {
+  from { transform: translateY(0); }
+  to   { transform: translateY(calc(-52px * var(--qa-scan-n))); }
+}
+
+/* ── Text rolodexes (name + description in sync) ── */
+.qa-scan-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.qa-scan-name-wrap,
+.qa-scan-desc-wrap {
+  height: 1.4em;
+  overflow: hidden;
+  position: relative;
+  mask-image: linear-gradient(to bottom,
+    transparent 0%, black 18%, black 82%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom,
+    transparent 0%, black 18%, black 82%, transparent 100%);
+}
+.qa-scan-name-roll,
+.qa-scan-desc-roll {
+  display: flex;
+  flex-direction: column;
+  animation: qa-scan-text-roll var(--qa-scan-duration)
+             cubic-bezier(0.7, 0, 0.3, 1) infinite;
+}
+/* The text rolodexes use eased transitions (not steps) so the swap looks
+   like a smooth slide rather than a hard cut, while still landing on the
+   same item the icon shows. The trick: hold each item ~70% of its slot
+   then animate to the next. We approximate this with a many-stop
+   percentage-keyed keyframe generated for n=14 here; if the list grows
+   we adjust the timing. The icon rolodex stays on `steps()` because the
+   icon swap reads better as instantaneous. */
+.qa-scan-name-item,
+.qa-scan-desc-item {
+  height: 1.4em;
+  line-height: 1.4em;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qa-scan-name-item {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.qa-scan-desc-item {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: -0.003em;
+}
+@keyframes qa-scan-text-roll {
+  /* 14 items × ~7.14% per slot. Each slot holds for 5% then transitions
+     over 2.14% to the next. Result: text feels like it slides smoothly
+     while the icon (on steps()) snaps in sync. */
+  0%    { transform: translateY(0); }
+  5%    { transform: translateY(0); }
+  7.14% { transform: translateY(-1.4em); }
+  12.14%{ transform: translateY(-1.4em); }
+  14.28%{ transform: translateY(-2.8em); }
+  19.28%{ transform: translateY(-2.8em); }
+  21.42%{ transform: translateY(-4.2em); }
+  26.42%{ transform: translateY(-4.2em); }
+  28.56%{ transform: translateY(-5.6em); }
+  33.56%{ transform: translateY(-5.6em); }
+  35.70%{ transform: translateY(-7.0em); }
+  40.70%{ transform: translateY(-7.0em); }
+  42.84%{ transform: translateY(-8.4em); }
+  47.84%{ transform: translateY(-8.4em); }
+  49.98%{ transform: translateY(-9.8em); }
+  54.98%{ transform: translateY(-9.8em); }
+  57.12%{ transform: translateY(-11.2em); }
+  62.12%{ transform: translateY(-11.2em); }
+  64.26%{ transform: translateY(-12.6em); }
+  69.26%{ transform: translateY(-12.6em); }
+  71.40%{ transform: translateY(-14.0em); }
+  76.40%{ transform: translateY(-14.0em); }
+  78.54%{ transform: translateY(-15.4em); }
+  83.54%{ transform: translateY(-15.4em); }
+  85.68%{ transform: translateY(-16.8em); }
+  90.68%{ transform: translateY(-16.8em); }
+  92.82%{ transform: translateY(-18.2em); }
+  97.82%{ transform: translateY(-18.2em); }
+  100%  { transform: translateY(-19.6em); }
+}
+
+/* Counter chip — small text version of "N checks" */
+.qa-scan-counter {
+  display: inline-block;
+}
+
+/* Mobile (≤ 480px): tighten the card and shrink the icon */
+@media (max-width: 480px) {
+  .qa-prog-scanner { padding: 12px 14px; }
+  .qa-scan-icon-wrap { width: 42px; height: 42px; }
+  .qa-scan-icon-item {
+    width: 42px;
+    height: 42px;
+    font-size: 1.3rem;
+  }
+  @keyframes qa-scan-icon-roll {
+    from { transform: translateY(0); }
+    to   { transform: translateY(calc(-42px * var(--qa-scan-n))); }
+  }
+  .qa-scan-name-item { font-size: 0.92rem; }
+  .qa-scan-desc-item { font-size: 0.74rem; }
 }
 
 .qa-prog-chips {
@@ -3342,36 +3536,64 @@ def live_progress_html(
     pct_display = "—" if indeterminate else str(pct_int)
     pct_sym = "" if indeterminate else '<span class="qa-prog-pct-sym">%</span>'
 
-    # Cycling 'checking…' rolodex. Pure CSS — labels scroll vertically every
-    # ~700 ms while the run is in progress. Hidden when done so the green bar
-    # has the stage to itself.
+    # "Holmes investigando" scanner card. Pure CSS — three synchronized
+    # rolodexes (icon / name / description) cycle vertically in lockstep
+    # so each tick reveals one rich "check" with full context. A scan-line
+    # animation sweeps the card horizontally so it always looks alive.
     cycler_html = ""
     if not done_status:
+        # (emoji icon, check name, short description). Order is deliberate —
+        # the rolodex follows the audit order so it tells a coherent story.
         _checks = [
-            "action title",
-            "so-what por slide",
-            "causa → consecuencia",
-            "longitud de párrafos",
-            "tamaño de fuente",
-            "fuente brand (ForFuture Sans)",
-            "casing del título",
-            "pie de página",
-            "alineación del footer",
-            "densidad de texto",
-            "rol de la slide",
-            "storyline cross-slide",
-            "consistencia del deck",
-            "análisis visual",
+            ("🎯", "Action title", "Sujeto + verbo + insight cuantificado"),
+            ("💡", "So-what por slide", "La implicación, no solo el dato"),
+            ("🔗", "Causa → consecuencia", "Evidencia antes que conclusión"),
+            ("📏", "Longitud de párrafos", "Bullets de 2-3 líneas máximo"),
+            ("🔤", "Tamaño de fuente", "Mínimo 9pt en cuerpo y pie"),
+            ("✒️", "Fuente brand", "ForFuture Sans en todos los textos"),
+            ("Aa", "Casing del título", "Sentence case, no Title Case"),
+            ("🏷️", "Pie de página", "Texto + posición canónica"),
+            ("📐", "Alineación del footer", "Misma posición en todas las slides"),
+            ("📊", "Densidad de texto", "Máximo ~250 palabras por slide"),
+            ("🔀", "Paralelismo en bullets", "Verbos o sustantivos, no mezcla"),
+            ("🌐", "Anglicismos", "Cursiva o equivalente en español"),
+            ("🧩", "Rol de la slide", "Cover / divider / contenido"),
+            ("📖", "Storyline cross-slide", "Horizontal logic del deck"),
         ]
-        items = "".join(
-            f'<span class="qa-prog-cycler-item">{_escape_html(c)}</span>'
-            for c in _checks
+        n_checks = len(_checks)
+        icon_items = "".join(
+            f'<span class="qa-scan-icon-item">{_escape_html(icon)}</span>'
+            for icon, _, _ in _checks
         )
+        name_items = "".join(
+            f'<span class="qa-scan-name-item">{_escape_html(name)}</span>'
+            for _, name, _ in _checks
+        )
+        desc_items = "".join(
+            f'<span class="qa-scan-desc-item">{_escape_html(desc)}</span>'
+            for _, _, desc in _checks
+        )
+        # Each rolodex needs total height = n × line-height. We use CSS vars
+        # so we don't hard-code values that drift if the list changes length.
         cycler_html = (
-            '<div class="qa-prog-cycler-row">'
-            '<span class="qa-prog-cycler-prefix">🔎 Holmes revisando</span>'
-            f'<span class="qa-prog-cycler"><span class="qa-prog-cycler-list">{items}</span></span>'
-            '<span class="qa-prog-cycler-dots"><span></span><span></span><span></span></span>'
+            f'<div class="qa-prog-scanner" style="--qa-scan-n: {n_checks}">'
+            '<div class="qa-prog-scanner-sweep" aria-hidden="true"></div>'
+            '<div class="qa-prog-scanner-header">'
+            '<span class="qa-prog-scanner-eyebrow">🔎 Holmes investigando</span>'
+            '<span class="qa-prog-scanner-status">'
+            '<span class="qa-scan-radar"></span>'
+            f'<span class="qa-scan-counter">{n_checks} checks</span>'
+            '</span>'
+            '</div>'
+            '<div class="qa-prog-scanner-body">'
+            '<div class="qa-scan-icon-wrap" aria-hidden="true">'
+            f'<div class="qa-scan-icon-roll">{icon_items}</div>'
+            '</div>'
+            '<div class="qa-scan-text">'
+            f'<div class="qa-scan-name-wrap"><div class="qa-scan-name-roll">{name_items}</div></div>'
+            f'<div class="qa-scan-desc-wrap"><div class="qa-scan-desc-roll">{desc_items}</div></div>'
+            '</div>'
+            '</div>'
             '</div>'
         )
 
