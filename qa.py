@@ -109,6 +109,12 @@ def _build_local_finding(
     text_density = det_slide.get("text_density") or {}
     font_family = det_slide.get("font_family") or {}
     title_case = det_slide.get("title_case") or {}
+    bullet_parallelism = det_slide.get("bullet_parallelism") or {}
+    binding_verbs = det_slide.get("binding_verbs") or {}
+    anglicisms = det_slide.get("anglicisms") or {}
+    bold_consistency = det_slide.get("bold_consistency") or {}
+    kicker = det_slide.get("kicker") or {}
+    slide_type_label = det_slide.get("slide_type_label") or {}
 
     # Local-only heuristics for the semantic checks
     at_h = classify_action_title_heuristic(title)
@@ -149,6 +155,20 @@ def _build_local_finding(
     if not skipped and title_case.get("applicable") and not title_case.get("ok"):
         score -= 1
         issues.append(title_case.get("notes", "Título en mayúsculas."))
+    # Minsait linguistic checks (page 26): each costs 1 point — they're
+    # editorial polish, not structural blockers like a missing title.
+    if not skipped and bullet_parallelism.get("applicable") and not bullet_parallelism.get("ok"):
+        score -= 1
+        issues.append(bullet_parallelism.get("notes", "Bullets sin paralelismo."))
+    if not skipped and binding_verbs.get("applicable") and not binding_verbs.get("ok"):
+        score -= 1
+        issues.append(binding_verbs.get("notes", "Verbos vinculantes en bullets."))
+    if not skipped and anglicisms.get("applicable") and not anglicisms.get("ok"):
+        score -= 1
+        issues.append(anglicisms.get("notes", "Anglicismos sin cursiva."))
+    if not skipped and bold_consistency.get("applicable") and not bold_consistency.get("ok"):
+        score -= 1
+        issues.append(bold_consistency.get("notes", "Negritas inconsistentes."))
     score = max(0, score)
 
     skip_note = f" Saltada del análisis semántico (role={role})." if skipped else ""
@@ -190,6 +210,12 @@ def _build_local_finding(
         "text_density": text_density,
         "font_family": font_family,
         "title_case": title_case,
+        "bullet_parallelism": bullet_parallelism,
+        "binding_verbs": binding_verbs,
+        "anglicisms": anglicisms,
+        "bold_consistency": bold_consistency,
+        "kicker": kicker,
+        "slide_type_label": slide_type_label,
         "_paragraphs": paragraphs,
         "_footer": det_slide["footer"],
     }
@@ -343,6 +369,9 @@ def run_local_qa(file_name: str, deck: dict[str, Any]) -> Iterator[tuple[str, An
         "footer_matches_deck_title_detail": det["footer_matches_deck_title"],
         "title_format_consistency_detail": det["title_format_consistency"],
         "duplicate_titles_detail": det["duplicate_titles"],
+        "anglicism_consistency_detail": det.get("anglicism_consistency"),
+        "kicker_consistency_detail": det.get("kicker_consistency"),
+        "slide_type_labels_detail": det.get("slide_type_labels"),
     }
 
     yield ("result", {"mode": "local", "deck_overview": deck_overview, "slides": slides_report})
@@ -389,6 +418,12 @@ def _merge_finding_with_deterministic(
         "text_density": det_slide.get("text_density") or {},
         "font_family": det_slide.get("font_family") or {},
         "title_case": det_slide.get("title_case") or {},
+        "bullet_parallelism": det_slide.get("bullet_parallelism") or {},
+        "binding_verbs": det_slide.get("binding_verbs") or {},
+        "anglicisms": det_slide.get("anglicisms") or {},
+        "bold_consistency": det_slide.get("bold_consistency") or {},
+        "kicker": det_slide.get("kicker") or {},
+        "slide_type_label": det_slide.get("slide_type_label") or {},
     }
 
 
@@ -629,6 +664,9 @@ def run_full_qa(
                 "footer_matches_deck_title_detail": det["footer_matches_deck_title"],
                 "title_format_consistency_detail": det["title_format_consistency"],
                 "duplicate_titles_detail": det["duplicate_titles"],
+                "anglicism_consistency_detail": det.get("anglicism_consistency"),
+                "kicker_consistency_detail": det.get("kicker_consistency"),
+                "slide_type_labels_detail": det.get("slide_type_labels"),
                 "skipped_slides": sorted(skipped_findings.keys()),
                 "analyzed_slides": sorted(slide_findings_by_num.keys()),
                 "visual_analysis_enabled": visual_analysis,

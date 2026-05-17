@@ -52,14 +52,22 @@ def extract_deck(pptx_path: str | Path) -> dict[str, Any]:
             paragraphs = []
             shape_explicit_sizes_pt: list[float] = []
             shape_font_names: list[str] = []
+            shape_bold_runs: list[str] = []   # texts of bold runs (for bold-consistency check)
+            shape_italic_runs: list[str] = []  # texts of italic runs (for anglicism check)
             for p in shape.text_frame.paragraphs:
                 p_text = "".join(run.text for run in p.runs).strip()
                 if not p_text:
                     continue
                 run_sizes_pt: list[float] = []
                 para_font_names: list[str] = []
+                para_runs: list[dict[str, Any]] = []
+                para_has_bold = False
+                para_has_italic = False
                 for run in p.runs:
-                    if not (run.text or "").strip():
+                    rtext = run.text or ""
+                    if not rtext.strip():
+                        # Still include empty/whitespace runs for layout fidelity,
+                        # but skip them for size/font extraction.
                         continue
                     sz = run.font.size
                     if sz is not None:
@@ -71,6 +79,24 @@ def extract_deck(pptx_path: str | Path) -> dict[str, Any]:
                     if fn:
                         para_font_names.append(fn)
                         shape_font_names.append(fn)
+                    # python-pptx exposes bold/italic as Optional[bool]: True,
+                    # False (explicit off), or None (inherit from layout). We
+                    # store None faithfully so downstream checks can distinguish
+                    # "explicitly not bold" from "default".
+                    rb = run.font.bold
+                    ri = run.font.italic
+                    if rb is True:
+                        para_has_bold = True
+                        shape_bold_runs.append(rtext.strip())
+                    if ri is True:
+                        para_has_italic = True
+                        shape_italic_runs.append(rtext.strip())
+                    para_runs.append({
+                        "text": rtext,
+                        "bold": rb,
+                        "italic": ri,
+                        "size_pt": float(sz.pt) if sz is not None else None,
+                    })
                 min_size_pt = min(run_sizes_pt) if run_sizes_pt else None
                 shape_explicit_sizes_pt.extend(run_sizes_pt)
                 paragraphs.append({
@@ -78,6 +104,9 @@ def extract_deck(pptx_path: str | Path) -> dict[str, Any]:
                     "level": p.level,
                     "min_size_pt": min_size_pt,
                     "font_names": list(dict.fromkeys(para_font_names)) or None,
+                    "runs": para_runs,
+                    "has_bold": para_has_bold,
+                    "has_italic": para_has_italic,
                 })
 
             info: dict[str, Any] = {
@@ -88,6 +117,8 @@ def extract_deck(pptx_path: str | Path) -> dict[str, Any]:
                     min(shape_explicit_sizes_pt) if shape_explicit_sizes_pt else None
                 ),
                 "font_names": list(dict.fromkeys(shape_font_names)) or None,
+                "bold_runs": shape_bold_runs,
+                "italic_runs": shape_italic_runs,
                 "is_title": title_shape is not None and shape == title_shape,
                 "top_in": _emu_to_inches(shape.top),
                 "left_in": _emu_to_inches(shape.left),

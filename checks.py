@@ -1415,6 +1415,744 @@ def check_duplicate_titles(deck: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Linguistic checks (Minsait playbook page 26 — "Consistencia del lenguaje")
+# ---------------------------------------------------------------------------
+#
+# These six checks operationalize the explicit rules from the Minsait/MBB
+# "Presentaciones estructuradas" training deck:
+#   1. Paralelismo en bullets (verbo vs sustantivo en primera palabra)
+#   2. Verbos de acción vs verbos vinculantes en bullets
+#   3. Anglicismos en cursiva
+#   4. Consistencia de negritas
+#   5. Detección de supertítulo / kicker
+#   6. Etiquetas de tipo de slide (preliminar / backup / discusión / etc.)
+
+
+# Spanish binding/copular verbs — when these dominate a bullet list, the
+# slide is descriptive rather than action-oriented. From Minsait page 26:
+# "Verbos - siempre verbos de acción o siempre verbos vinculantes".
+_BINDING_VERBS = frozenset({
+    # ser
+    "es", "son", "era", "eran", "fue", "fueron", "será", "serán", "sea", "sean",
+    "siendo", "sido",
+    # estar
+    "está", "están", "estaba", "estaban", "estuvo", "estuvieron", "estará",
+    "estarán", "esté", "estén", "estando", "estado",
+    # haber (auxiliar)
+    "hay", "había", "habían", "hubo", "habrá", "habrán", "haya", "hayan",
+    # tener
+    "tiene", "tienen", "tenía", "tenían", "tuvo", "tuvieron", "tendrá",
+    "tendrán", "tenga", "tengan",
+})
+
+# Common Spanish action verbs (infinitive + imperative) used in consulting
+# decks. Used as a positive identifier — if the first word matches, it's an
+# action verb. This is non-exhaustive; the fallback is the -ar/-er/-ir
+# infinitive heuristic.
+_ACTION_VERBS_HINT = frozenset({
+    "definir", "diseñar", "implementar", "ejecutar", "evaluar", "medir",
+    "optimizar", "automatizar", "mejorar", "reducir", "incrementar",
+    "aumentar", "validar", "verificar", "auditar", "analizar", "identificar",
+    "priorizar", "estructurar", "planificar", "integrar", "gestionar",
+    "motivar", "formar", "capacitar", "monitorear", "monitorizar",
+    "aplicar", "establecer", "construir", "crear", "lanzar", "desarrollar",
+    "desplegar", "consolidar", "estandarizar", "alinear", "facilitar",
+    "habilitar", "soportar", "asegurar", "garantizar", "transformar",
+    "rediseñar", "redefinir", "renegociar", "captar", "retener", "fidelizar",
+    "segmentar", "perfilar", "diagnosticar",
+})
+
+# Common anglicisms in consulting Spanish. Per Minsait page 26: when used,
+# must appear in italics. We flag any anglicism that's not italicized.
+_COMMON_ANGLICISMS = frozenset({
+    # Process / strategy
+    "deadline", "milestone", "kickoff", "kick-off", "workshop", "framework",
+    "roadmap", "pipeline", "backlog", "scope", "deliverable", "deliverables",
+    "stakeholder", "stakeholders", "input", "inputs", "output", "outputs",
+    "target", "targets", "benchmark", "benchmarks", "insight", "insights",
+    "feedback", "engagement", "ownership", "leadership", "performance",
+    "outsourcing", "onboarding", "offboarding", "briefing", "debriefing",
+    # Sales / marketing
+    "lead", "leads", "prospect", "prospects", "funnel", "churn", "uplift",
+    "cross-sell", "upsell", "go-to-market", "branding", "claim",
+    # Operations / tech
+    "core", "asset", "issue", "issues", "tracker", "dashboard", "report",
+    "reporting", "scoring", "tracking", "compliance", "governance",
+    # Agile / project mgmt
+    "sprint", "scrum", "standup", "agile", "mvp", "okr", "okrs", "kpi",
+    "kpis", "roi", "tco",
+    # Meeting / communication
+    "meeting", "call", "follow-up", "followup", "follow up",
+})
+
+
+_SPANISH_STOPWORDS_FIRST = frozenset({
+    "el", "la", "los", "las", "un", "una", "unos", "unas", "y", "o",
+    "de", "del", "en", "con", "sin", "por", "para", "al",
+    "a", "lo", "mi", "tu", "su",
+})
+
+
+def _first_significant_token(text: str) -> str:
+    """Return the first non-stopword token of a bullet (lowercased)."""
+    if not text:
+        return ""
+    # Strip leading bullet markers and punctuation
+    cleaned = re.sub(r"^[\s\-–—•▪●○◦*·∙]+", "", text).strip()
+    # Skip leading numbering (1., 1), 1- )
+    cleaned = re.sub(r"^\d+[\.\)\-]\s+", "", cleaned)
+    words = cleaned.split()
+    for w in words:
+        # Strip surrounding punctuation
+        clean = re.sub(r"^[\"'¿¡(\[\{]+|[\"',.;:!?\)\]\}]+$", "", w).lower()
+        if clean and clean not in _SPANISH_STOPWORDS_FIRST:
+            return clean
+    return ""
+
+
+def _classify_token_pos(token: str) -> str:
+    """Classify a Spanish word as 'verb' / 'noun' / 'adjective' / 'unknown'.
+
+    Heuristic — not a full POS tagger. Catches the common patterns in
+    consulting bullets: infinitives (-ar/-er/-ir), gerunds (-ando/-iendo),
+    participles (-ado/-ido), explicit verb whitelist, and binding verbs.
+    Everything else defaults to 'noun' (which is the most common other class
+    in bullet-first-word slots).
+    """
+    if not token:
+        return "unknown"
+    if token in _BINDING_VERBS:
+        return "binding_verb"
+    if token in _ACTION_VERBS_HINT:
+        return "verb"
+    # Infinitive / gerund / participle endings — strong verb signal.
+    if re.search(r"(ar|er|ir)$", token) and len(token) >= 4:
+        return "verb"
+    if re.search(r"(ando|iendo|yendo)$", token):
+        return "verb"
+    if re.search(r"(ado|ido|edo)$", token) and len(token) >= 5:
+        # could be noun (estado, partido) or participle; treat as verb-ish
+        return "verb"
+    # 3rd-person plural action verbs ending in -an/-en/-on (común en bullets:
+    # "Optimizan procesos", "Definen estrategia") — only if long enough.
+    if len(token) >= 6 and re.search(r"(an|en|on)$", token):
+        return "verb"
+    return "noun"
+
+
+def _bullets_from_shape(shape: dict[str, Any]) -> list[str]:
+    """Return the list of bullet strings for a shape.
+
+    A "bullet" is one paragraph in a multi-paragraph text frame — or a line
+    in a single-paragraph text frame that explicitly uses bullet markers.
+    """
+    paragraphs = shape.get("paragraphs") or []
+    if len(paragraphs) >= 2:
+        return [p["text"] for p in paragraphs if (p.get("text") or "").strip()]
+    # Single-paragraph fallback: split on newlines if they look like bullets
+    if len(paragraphs) == 1:
+        text = (paragraphs[0].get("text") or "").strip()
+        lines = [
+            line for line in text.split("\n")
+            if line.strip() and re.match(r"^[\s\-–—•▪●○◦*·∙]+", line)
+        ]
+        if len(lines) >= 2:
+            return lines
+    return []
+
+
+def check_bullet_parallelism(slide: dict[str, Any]) -> dict[str, Any]:
+    """Flag bullet lists that mix verb-first and noun-first items.
+
+    Minsait page 26: "Primera palabra — siempre verbos o siempre sustantivos".
+    Triggers only on shapes with ≥3 bullets where the first-word POS class
+    isn't homogeneous (≥80% of one class). Below 80% the list is considered
+    mixed and worth flagging.
+    """
+    findings: list[dict[str, Any]] = []
+    for shape in slide.get("shapes", []):
+        if shape.get("is_title"):
+            continue
+        bullets = _bullets_from_shape(shape)
+        if len(bullets) < 3:
+            continue
+        first_words = [_first_significant_token(b) for b in bullets]
+        classes = [_classify_token_pos(w) for w in first_words]
+        # Collapse binding_verb + verb for the homogeneity check (both are
+        # verbs); the binding_verb-vs-action_verb distinction lives in its
+        # own check.
+        normalized = ["verb" if c in ("verb", "binding_verb") else c for c in classes]
+        # Filter out 'unknown' (empty first word) for the ratio calc.
+        meaningful = [c for c in normalized if c != "unknown"]
+        if len(meaningful) < 3:
+            continue
+        from collections import Counter
+        counts = Counter(meaningful)
+        dominant, dominant_count = counts.most_common(1)[0]
+        ratio = dominant_count / len(meaningful)
+        if ratio >= 0.8:
+            continue  # consistent enough
+        # Mixed — flag it.
+        examples = [
+            {"text": b[:80], "first_word": w, "class": c}
+            for b, w, c in zip(bullets, first_words, classes)
+            if c != "unknown"
+        ]
+        findings.append({
+            "shape_name": shape.get("name"),
+            "bullet_count": len(bullets),
+            "dominant_class": dominant,
+            "dominant_ratio": round(ratio, 2),
+            "counts": dict(counts),
+            "examples": examples[:6],
+        })
+
+    if not findings:
+        return {
+            "applicable": False,
+            "ok": True,
+            "notes": "No hay bullet lists multi-item para evaluar paralelismo.",
+            "findings": [],
+            "suggestion": None,
+        }
+
+    suggestion = (
+        "Reescribir los bullets para que TODOS empiecen con verbo (de acción) "
+        "o TODOS con sustantivo. El estándar Minsait exige paralelismo en "
+        "listas — mezclar 'Optimizar X' con 'Reducción de Y' rompe el ritmo "
+        "y oculta la línea argumental."
+    )
+    return {
+        "applicable": True,
+        "ok": False,
+        "findings": findings,
+        "notes": (
+            f"{len(findings)} bullet list(s) sin paralelismo en la primera "
+            "palabra (mezcla verbo + sustantivo)."
+        ),
+        "suggestion": suggestion,
+    }
+
+
+def check_action_verbs_in_bullets(slide: dict[str, Any]) -> dict[str, Any]:
+    """Flag bullet lists dominated by binding verbs (ser/estar/tener/haber).
+
+    Per Minsait page 26: "siempre verbos de acción o siempre verbos vinculantes".
+    Slides for senior decision-makers should use action verbs. A list where
+    >50% of bullets start with a binding verb signals descriptive prose
+    rather than recommendation-driven content.
+    """
+    findings: list[dict[str, Any]] = []
+    for shape in slide.get("shapes", []):
+        if shape.get("is_title"):
+            continue
+        bullets = _bullets_from_shape(shape)
+        if len(bullets) < 3:
+            continue
+        first_words = [_first_significant_token(b) for b in bullets]
+        binding = [w for w in first_words if w in _BINDING_VERBS]
+        if len(binding) == 0:
+            continue
+        ratio = len(binding) / len(first_words)
+        if ratio >= 0.5:
+            findings.append({
+                "shape_name": shape.get("name"),
+                "bullet_count": len(bullets),
+                "binding_count": len(binding),
+                "binding_ratio": round(ratio, 2),
+                "binding_words": list(dict.fromkeys(binding))[:6],
+                "examples": [
+                    b[:80] for b, w in zip(bullets, first_words)
+                    if w in _BINDING_VERBS
+                ][:4],
+            })
+
+    if not findings:
+        return {
+            "applicable": False,
+            "ok": True,
+            "notes": "Los bullets usan verbos de acción o no aplican.",
+            "findings": [],
+            "suggestion": None,
+        }
+
+    return {
+        "applicable": True,
+        "ok": False,
+        "findings": findings,
+        "notes": (
+            f"{len(findings)} bullet list(s) dominadas por verbos vinculantes "
+            "(es / son / está / tiene). El estándar Minsait prefiere verbos de "
+            "acción en bullets orientados a recomendación."
+        ),
+        "suggestion": (
+            "Reformular los bullets con verbos de acción: en vez de 'Es "
+            "necesario X', usar 'Definir / implementar / evaluar X'. Si el "
+            "objetivo de la slide es descriptivo (no recomendación), está OK "
+            "—el alerta es para slides de propuesta/conclusión."
+        ),
+    }
+
+
+def check_anglicisms(slide: dict[str, Any]) -> dict[str, Any]:
+    """Flag anglicisms used without italic formatting.
+
+    Per Minsait page 26: "Minimización de anglicismos - uso mínimo de
+    anglicismos y, cuando se utilizan, estos deben señalarse en cursiva".
+
+    We check every text run on the slide. An anglicism in a non-italic run
+    is a finding. An anglicism in an italic run is correct usage.
+    """
+    findings: list[dict[str, Any]] = []
+    correct_italic: list[dict[str, Any]] = []
+    for shape in slide.get("shapes", []):
+        for para in shape.get("paragraphs") or []:
+            for run in para.get("runs") or []:
+                text = (run.get("text") or "").strip()
+                if not text:
+                    continue
+                # Tokenize on whitespace + punctuation; check each lowercased token.
+                tokens = re.findall(r"[A-Za-z][A-Za-z\-]+", text.lower())
+                hit = next((t for t in tokens if t in _COMMON_ANGLICISMS), None)
+                if not hit:
+                    continue
+                is_italic = run.get("italic") is True
+                entry = {
+                    "shape_name": shape.get("name"),
+                    "term": hit,
+                    "snippet": run.get("text", "")[:80],
+                    "italic": is_italic,
+                }
+                if is_italic:
+                    correct_italic.append(entry)
+                else:
+                    findings.append(entry)
+
+    if not findings and not correct_italic:
+        return {
+            "applicable": False,
+            "ok": True,
+            "notes": "Sin anglicismos detectados.",
+            "findings": [],
+            "correct_italic": [],
+            "suggestion": None,
+        }
+
+    if not findings:
+        return {
+            "applicable": True,
+            "ok": True,
+            "notes": (
+                f"{len(correct_italic)} anglicismo(s) detectado(s), todos en "
+                "cursiva — uso correcto según el estándar Minsait."
+            ),
+            "findings": [],
+            "correct_italic": correct_italic,
+            "suggestion": None,
+        }
+
+    terms = sorted({f["term"] for f in findings})
+    return {
+        "applicable": True,
+        "ok": False,
+        "findings": findings,
+        "correct_italic": correct_italic,
+        "notes": (
+            f"{len(findings)} anglicismo(s) sin cursiva: {', '.join(terms[:5])}"
+            + ("..." if len(terms) > 5 else "")
+        ),
+        "suggestion": (
+            "Pasar los anglicismos a cursiva (italic) o reemplazarlos por su "
+            "equivalente en español: 'deadline' → 'fecha límite', 'meeting' "
+            "→ 'reunión', 'feedback' → 'retroalimentación'. Si el término "
+            "técnico no tiene equivalente, mantenerlo en cursiva."
+        ),
+    }
+
+
+def check_bold_consistency(slide: dict[str, Any]) -> dict[str, Any]:
+    """Flag inconsistent bold emphasis within the slide body.
+
+    Per Minsait page 26: "Negritas — siempre énfasis en el mismo tipo de
+    objetos (p.ej. verbos, sustantivos, adjetivos)".
+
+    Heuristic: collect every bold-emphasized run on the slide. Classify each
+    as numeric (mostly digits/%) or textual. If a slide mixes numeric and
+    textual bolding without a clear majority, flag it. Slides with very few
+    bold runs are exempt.
+    """
+    bold_items: list[dict[str, Any]] = []
+    for shape in slide.get("shapes", []):
+        if shape.get("is_title"):
+            continue
+        for para in shape.get("paragraphs") or []:
+            for run in para.get("runs") or []:
+                if run.get("bold") is not True:
+                    continue
+                text = (run.get("text") or "").strip()
+                if not text:
+                    continue
+                bold_items.append({
+                    "shape_name": shape.get("name"),
+                    "text": text[:60],
+                })
+
+    if len(bold_items) < 3:
+        return {
+            "applicable": False,
+            "ok": True,
+            "notes": "Pocas negritas en el body para evaluar consistencia.",
+            "bold_count": len(bold_items),
+            "items": bold_items,
+            "suggestion": None,
+        }
+
+    # Classify each bold item: 'numeric' if text is mostly digits/%/currency
+    # symbols/scale suffixes (M/K/B/bn/USD), else 'text'.
+    _SCALE_SUFFIX_RE = re.compile(
+        r"^\s*[+\-]?\$?\d[\d.,]*\s*(%|pp|bps|x|usd|eur|m|mm|mn|k|b|bn|tn)?\s*$",
+        re.IGNORECASE,
+    )
+
+    def _classify(t: str) -> str:
+        stripped = t.strip()
+        if not stripped:
+            return "text"
+        # Whole-string match against the numeric pattern (handles "$5M",
+        # "30%", "+12pp", "1.2bn", "USD 5M").
+        if _SCALE_SUFFIX_RE.match(stripped):
+            return "numeric"
+        chars = [c for c in t if not c.isspace()]
+        if not chars:
+            return "text"
+        digit_like = sum(
+            1 for c in chars
+            if c.isdigit() or c in "%$€£¥.,+-"
+        )
+        if digit_like / len(chars) >= 0.7:
+            return "numeric"
+        return "text"
+
+    classes = [_classify(it["text"]) for it in bold_items]
+    from collections import Counter
+    counts = Counter(classes)
+    dominant, dominant_count = counts.most_common(1)[0]
+    ratio = dominant_count / len(classes)
+
+    if ratio >= 0.8 or len(counts) == 1:
+        return {
+            "applicable": True,
+            "ok": True,
+            "bold_count": len(bold_items),
+            "dominant_class": dominant,
+            "counts": dict(counts),
+            "items": bold_items[:10],
+            "notes": (
+                f"Negritas consistentes: {dominant_count}/{len(classes)} son "
+                f"{dominant} (énfasis homogéneo)."
+            ),
+            "suggestion": None,
+        }
+
+    return {
+        "applicable": True,
+        "ok": False,
+        "bold_count": len(bold_items),
+        "dominant_class": dominant,
+        "counts": dict(counts),
+        "items": bold_items[:10],
+        "notes": (
+            f"Énfasis en negrita mixto: {dict(counts)} (cifras + texto sin "
+            "criterio dominante)."
+        ),
+        "suggestion": (
+            "Decidir UN solo criterio para negritas y aplicarlo a toda la "
+            "slide: o se destacan solo cifras clave (KPIs, porcentajes), o "
+            "solo conceptos / verbos de acción. Mezclar pierde el énfasis "
+            "porque la audiencia no sabe qué mirar primero."
+        ),
+    }
+
+
+def check_kicker(slide: dict[str, Any]) -> dict[str, Any]:
+    """Detect a kicker / supertítulo above the slide title.
+
+    Per Minsait page 21 ("Descomponiendo una diapositiva"), the supertítulo
+    is one of the 8 slide elements: a short label (numeric/descriptive/visual)
+    placed above the main title for context.
+
+    Geometric heuristic:
+    - Title shape exists
+    - There's a non-title text shape directly above the title (top + height < title.top)
+    - That shape is short (< 60 chars) and uses a smaller font than the title
+    """
+    title_shape = next(
+        (sh for sh in slide.get("shapes", []) if sh.get("is_title")), None
+    )
+    if not title_shape:
+        return {
+            "applicable": False,
+            "present": False,
+            "notes": "Sin título — no se evalúa supertítulo.",
+        }
+    title_top = title_shape.get("top_in")
+    title_height = title_shape.get("height_in")
+    title_size = title_shape.get("min_font_size_pt")
+    if title_top is None:
+        return {
+            "applicable": False,
+            "present": False,
+            "notes": "Sin geometría del título.",
+        }
+
+    for shape in slide.get("shapes", []):
+        if shape.get("is_title"):
+            continue
+        top = shape.get("top_in")
+        height = shape.get("height_in")
+        text = (shape.get("text") or "").strip()
+        if top is None or not text:
+            continue
+        # Above the title (bottom edge of this shape ≤ top of title)
+        bottom = top + (height or 0)
+        if bottom > title_top + 0.1:
+            continue
+        if len(text) > 60:
+            continue
+        sh_size = shape.get("min_font_size_pt")
+        smaller = (
+            title_size is None
+            or sh_size is None
+            or sh_size < title_size
+        )
+        if not smaller:
+            continue
+        return {
+            "applicable": True,
+            "present": True,
+            "kicker_text": text,
+            "kicker_top_in": top,
+            "title_top_in": title_top,
+            "notes": f"Supertítulo detectado: \"{text[:50]}\".",
+            "suggestion": None,
+        }
+    return {
+        "applicable": True,
+        "present": False,
+        "notes": "Sin supertítulo (puede ser intencional o un slot vacío).",
+        "suggestion": None,
+    }
+
+
+# Slide-type labels per Minsait page 21 — these tags signal the slide's
+# editorial status. Detection is best-effort: keyword match in any text shape.
+_SLIDE_TYPE_LABELS = {
+    "preliminar": ("preliminar", "borrador", "draft", "preliminary"),
+    "backup": ("backup", "respaldo", "appendix", "anexo"),
+    "ilustrativa": ("ilustrativa", "ilustrativo", "illustrative"),
+    "no_exhaustiva": (
+        "no exhaustiva", "no exhaustivo", "non-exhaustive",
+        "not exhaustive",
+    ),
+    "discusion": (
+        "para discusión", "para discusion", "discusión", "for discussion",
+        "discussion",
+    ),
+}
+
+
+def check_slide_type_label(slide: dict[str, Any]) -> dict[str, Any]:
+    """Detect editorial slide-type tags (preliminar / backup / discusión / etc.).
+
+    Looks at every text shape on the slide for the keywords from
+    `_SLIDE_TYPE_LABELS`. Detection is informational — these labels are
+    legitimate per the Minsait playbook; we surface them so the user can
+    confirm they're being applied consistently across the deck.
+    """
+    detected: list[dict[str, Any]] = []
+    for shape in slide.get("shapes", []):
+        text = (shape.get("text") or "").strip().lower()
+        if not text or len(text) > 120:
+            continue
+        for label, keywords in _SLIDE_TYPE_LABELS.items():
+            for kw in keywords:
+                if kw in text:
+                    detected.append({
+                        "label": label,
+                        "matched_text": (shape.get("text") or "").strip()[:60],
+                        "shape_name": shape.get("name"),
+                    })
+                    break
+
+    if not detected:
+        return {
+            "applicable": False,
+            "present": False,
+            "labels": [],
+            "notes": "Sin etiquetas de tipo de slide.",
+        }
+
+    labels = sorted({d["label"] for d in detected})
+    return {
+        "applicable": True,
+        "present": True,
+        "labels": labels,
+        "detected": detected,
+        "notes": (
+            f"Etiqueta(s) de tipo: {', '.join(labels)}."
+        ),
+        "suggestion": None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Deck-level rollups for the new linguistic checks
+# ---------------------------------------------------------------------------
+
+def check_anglicism_consistency(deck: dict[str, Any]) -> dict[str, Any]:
+    """Roll up anglicism usage across the deck for the overview panel."""
+    total_uses = 0
+    italic_uses = 0
+    non_italic_uses = 0
+    term_counter: dict[str, int] = {}
+    offending_slides: list[int] = []
+    for slide in deck.get("slides", []):
+        result = check_anglicisms(slide)
+        if not result.get("applicable"):
+            continue
+        for f in result.get("findings", []):
+            total_uses += 1
+            non_italic_uses += 1
+            term_counter[f["term"]] = term_counter.get(f["term"], 0) + 1
+            if slide["slide_number"] not in offending_slides:
+                offending_slides.append(slide["slide_number"])
+        for f in result.get("correct_italic", []):
+            total_uses += 1
+            italic_uses += 1
+            term_counter[f["term"]] = term_counter.get(f["term"], 0) + 1
+
+    if total_uses == 0:
+        return {
+            "applicable": False,
+            "ok": True,
+            "notes": "El deck no usa anglicismos comunes.",
+            "total_uses": 0,
+        }
+
+    top_terms = sorted(term_counter.items(), key=lambda kv: -kv[1])[:6]
+    italic_pct = italic_uses / total_uses if total_uses else 0.0
+    return {
+        "applicable": True,
+        "ok": non_italic_uses == 0,
+        "total_uses": total_uses,
+        "italic_uses": italic_uses,
+        "non_italic_uses": non_italic_uses,
+        "italic_pct": round(italic_pct, 2),
+        "top_terms": top_terms,
+        "offending_slides": sorted(offending_slides),
+        "notes": (
+            f"{total_uses} anglicismo(s) en el deck — "
+            f"{italic_uses} en cursiva (correcto), "
+            f"{non_italic_uses} sin cursiva."
+            if non_italic_uses
+            else f"{total_uses} anglicismo(s), todos en cursiva: uso correcto."
+        ),
+        "suggestion": (
+            "Anglicismos sin cursiva en " + str(len(offending_slides))
+            + " slide(s). Pasarlos a italic o reemplazar por equivalente "
+            "en español."
+            if non_italic_uses else None
+        ),
+    }
+
+
+def check_kicker_consistency(deck: dict[str, Any]) -> dict[str, Any]:
+    """Across content slides, % with vs without kicker.
+
+    If the deck uses kickers, they should appear on a consistent set of
+    slides (e.g. all content slides). A 30/70 mix signals editorial drift.
+    """
+    body_slides_with_kicker = 0
+    body_slides_total = 0
+    kicker_slides: list[int] = []
+    no_kicker_slides: list[int] = []
+    for slide in deck.get("slides", []):
+        role = classify_slide_role(slide)
+        if role not in ("content_with_title",):
+            continue
+        body_slides_total += 1
+        k = check_kicker(slide)
+        if k.get("present"):
+            body_slides_with_kicker += 1
+            kicker_slides.append(slide["slide_number"])
+        else:
+            no_kicker_slides.append(slide["slide_number"])
+
+    if body_slides_total < 3:
+        return {
+            "applicable": False,
+            "ok": True,
+            "notes": "Pocos content slides para evaluar consistencia de kicker.",
+        }
+
+    coverage = body_slides_with_kicker / body_slides_total
+    # Consistent if either ≥80% use it or ≤10% use it (deck-wide convention).
+    consistent = coverage >= 0.8 or coverage <= 0.1
+    return {
+        "applicable": True,
+        "ok": consistent,
+        "body_slides_total": body_slides_total,
+        "body_slides_with_kicker": body_slides_with_kicker,
+        "coverage_pct": round(coverage, 2),
+        "kicker_slides": kicker_slides,
+        "no_kicker_slides": no_kicker_slides[:10],
+        "notes": (
+            f"{body_slides_with_kicker}/{body_slides_total} content slides "
+            f"({coverage:.0%}) usan supertítulo — "
+            + ("convención consistente." if consistent
+               else "convención mixta, debería ser todo o nada.")
+        ),
+        "suggestion": (
+            None if consistent else
+            "Definir si el deck usa supertítulos o no. Si sí, agregarlos a "
+            "todas las content slides. Si no, removerlos. La mezcla rompe "
+            "el ritmo visual."
+        ),
+    }
+
+
+def check_slide_type_label_summary(deck: dict[str, Any]) -> dict[str, Any]:
+    """Aggregate slide-type labels across the deck."""
+    by_label: dict[str, list[int]] = {}
+    for slide in deck.get("slides", []):
+        r = check_slide_type_label(slide)
+        if not r.get("present"):
+            continue
+        for label in r.get("labels", []):
+            by_label.setdefault(label, []).append(slide["slide_number"])
+
+    if not by_label:
+        return {
+            "applicable": False,
+            "present": False,
+            "notes": "Sin etiquetas editoriales (preliminar / backup / etc.).",
+            "by_label": {},
+        }
+
+    parts = [f"{lbl}: slides {nums}" for lbl, nums in by_label.items()]
+    return {
+        "applicable": True,
+        "present": True,
+        "by_label": by_label,
+        "notes": "Etiquetas detectadas — " + " · ".join(parts),
+        "suggestion": (
+            "Confirmar que las etiquetas son intencionales. Si el deck es "
+            "final, remover etiquetas tipo 'Preliminar' o 'Borrador'."
+        ),
+    }
+
+
 def run_deterministic_checks(file_name: str, deck: dict[str, Any]) -> dict[str, Any]:
     """Apply every deterministic check; return a structured report."""
     slide_height_in = deck.get("slide_height_in")
@@ -1432,6 +2170,12 @@ def run_deterministic_checks(file_name: str, deck: dict[str, Any]) -> dict[str, 
                 "text_density": check_text_density(slide),
                 "font_family": check_font_family(slide),
                 "title_case": check_title_not_uppercase(slide),
+                "bullet_parallelism": check_bullet_parallelism(slide),
+                "binding_verbs": check_action_verbs_in_bullets(slide),
+                "anglicisms": check_anglicisms(slide),
+                "bold_consistency": check_bold_consistency(slide),
+                "kicker": check_kicker(slide),
+                "slide_type_label": check_slide_type_label(slide),
             }
         )
 
@@ -1451,4 +2195,7 @@ def run_deterministic_checks(file_name: str, deck: dict[str, Any]) -> dict[str, 
         "subtitle_filename_alignment": check_subtitle_filename_alignment(deck, file_name),
         "title_format_consistency": check_title_format_consistency(deck),
         "duplicate_titles": check_duplicate_titles(deck),
+        "anglicism_consistency": check_anglicism_consistency(deck),
+        "kicker_consistency": check_kicker_consistency(deck),
+        "slide_type_labels": check_slide_type_label_summary(deck),
     }

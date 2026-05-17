@@ -1461,6 +1461,850 @@ body.qa-nav-visible .qa-nav {
   font-weight: 400;
 }
 
+/* =================================================================
+   BUENAS PRÁCTICAS V2 — Minsait framework (3 disciplinas)
+   ================================================================= */
+
+@keyframes qa-bp-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes qa-bp-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
+}
+
+.qa-bp-v2 { max-width: 980px; }
+
+/* ---------- HERO ---------- */
+.qa-bp-hero { margin: 0 0 4rem 0; }
+.qa-bp-hero-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 28px;
+}
+.qa-bp-hero-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px 22px;
+  background: white;
+  border: 1px solid rgba(61,13,26,0.08);
+  border-radius: 14px;
+  text-decoration: none !important;
+  color: inherit !important;
+  transition: transform 220ms cubic-bezier(0.25,0.46,0.45,0.94),
+              box-shadow 220ms ease,
+              border-color 220ms ease;
+  cursor: pointer;
+}
+.qa-bp-hero-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(233,78,119,0.3);
+  box-shadow: 0 8px 24px rgba(233,78,119,0.12);
+}
+.qa-bp-hero-tile-num {
+  flex: 0 0 auto;
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: rgba(233,78,119,0.85);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-top: 2px;
+}
+.qa-bp-hero-tile-body { flex: 1; min-width: 0; }
+.qa-bp-hero-tile-name {
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.018em;
+  margin-bottom: 4px;
+}
+.qa-bp-hero-tile-method {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.01em;
+  margin-bottom: 6px;
+}
+.qa-bp-hero-tile-sub {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* ---------- PILLAR (section wrapper) ---------- */
+.qa-bp-pillar {
+  background: white;
+  border: 1px solid rgba(61,13,26,0.06);
+  border-radius: 22px;
+  padding: 44px 48px;
+  margin: 0 0 28px 0;
+  scroll-margin-top: 80px;
+  animation: qa-bp-fade-up 600ms cubic-bezier(0.25,0.46,0.45,0.94) both;
+}
+.qa-bp-pillar-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 32px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid rgba(61,13,26,0.06);
+}
+.qa-bp-pillar-num {
+  flex: 0 0 auto;
+  font-size: 3rem;
+  font-weight: 700;
+  color: rgba(233,78,119,0.18);
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+.qa-bp-pillar-titles { flex: 1; min-width: 0; }
+.qa-bp-pillar-overline {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.qa-bp-pillar-name {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.028em;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+  line-height: 1.1;
+}
+.qa-bp-pillar-tagline {
+  font-size: 1rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ---------- Section divider inside a pillar ---------- */
+.qa-bp-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 32px 0 22px 0;
+}
+.qa-bp-section-divider::before,
+.qa-bp-section-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(61,13,26,0.08);
+}
+.qa-bp-section-divider span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+}
+.qa-bp-section-sub {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  margin-bottom: 18px;
+}
+
+/* ---------- PILLAR 1 · Pyramid block ---------- */
+.qa-bp-pyramid-block {
+  display: grid;
+  grid-template-columns: 1.05fr 1.3fr;
+  gap: 32px;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(244,241,236,0.5) 0%, white 100%);
+  border-radius: 14px;
+  padding: 28px;
+}
+.qa-bp-pyramid-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.qa-bp-pyramid-svg {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+}
+.qa-bp-pyr-layer {
+  transition: transform 280ms cubic-bezier(0.34,1.56,0.64,1), filter 200ms ease;
+  transform-origin: center;
+  cursor: default;
+}
+.qa-bp-pyramid-svg:hover .qa-bp-pyr-layer { filter: saturate(0.6) opacity(0.6); }
+.qa-bp-pyramid-svg .qa-bp-pyr-layer:hover {
+  filter: saturate(1.2) opacity(1) drop-shadow(0 4px 10px rgba(233,78,119,0.35));
+  transform: scale(1.04);
+}
+.qa-bp-pyramid-caption {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.5;
+  max-width: 280px;
+}
+.qa-bp-pyr-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.qa-bp-pyr-card {
+  background: white;
+  border: 1px solid rgba(61,13,26,0.08);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 14px 18px;
+  transition: border-left-width 200ms ease, transform 200ms ease;
+}
+.qa-bp-pyr-card:hover {
+  border-left-width: 6px;
+  transform: translateX(2px);
+}
+.qa-bp-pyr-card-name {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+}
+.qa-bp-pyr-card-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+.qa-bp-pyr-card-desc {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ---------- PILLAR 1 · Principles cards ---------- */
+.qa-bp-principles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.qa-bp-principle {
+  background: white;
+  border: 1px solid rgba(61,13,26,0.08);
+  border-radius: 14px;
+  padding: 22px;
+  transition: transform 220ms ease, box-shadow 220ms ease;
+  display: flex;
+  flex-direction: column;
+}
+.qa-bp-principle:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(61,13,26,0.06);
+}
+.qa-bp-principle-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.qa-bp-principle-num {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(233,78,119,0.55);
+  letter-spacing: 0.05em;
+}
+.qa-bp-principle-title { display: flex; align-items: baseline; gap: 8px; }
+.qa-bp-principle-name {
+  font-size: 1.18rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+.qa-bp-principle-tag {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.qa-bp-principle-desc {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin: 0 0 14px 0;
+}
+.qa-bp-principle-examples {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.qa-bp-ex {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.qa-bp-ex-bad { background: rgba(204,80,80,0.06); border-left: 2px solid rgba(204,80,80,0.45); }
+.qa-bp-ex-good { background: rgba(4,120,87,0.06); border-left: 2px solid rgba(4,120,87,0.45); }
+.qa-bp-ex-tag {
+  font-weight: 700;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+}
+.qa-bp-ex-bad .qa-bp-ex-tag { color: rgba(180,40,40,0.85); }
+.qa-bp-ex-good .qa-bp-ex-tag { color: rgba(4,120,87,0.85); }
+.qa-bp-ex-txt {
+  color: var(--text);
+  font-style: italic;
+}
+
+/* ---------- PILLAR 1 · Build-path tabs ---------- */
+.qa-bp-tabs { margin-top: 8px; }
+.qa-bp-tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.qa-bp-tab-labels {
+  display: inline-flex;
+  background: rgba(61,13,26,0.05);
+  padding: 4px;
+  border-radius: 100px;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+.qa-bp-tab-label {
+  padding: 9px 22px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 100px;
+  transition: background 220ms ease, color 220ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.qa-bp-tab-label:hover { color: var(--text-primary); }
+.qa-bp-tab-arrow {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.qa-bp-tabs-build .qa-bp-tab-panel { display: none; animation: qa-bp-fade-up 400ms ease both; }
+#qa-bp-buildtop:checked ~ .qa-bp-tab-labels label[for="qa-bp-buildtop"],
+#qa-bp-buildbot:checked ~ .qa-bp-tab-labels label[for="qa-bp-buildbot"] {
+  background: white;
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(61,13,26,0.08);
+}
+#qa-bp-buildtop:checked ~ .qa-bp-tab-panels .qa-bp-build-top,
+#qa-bp-buildbot:checked ~ .qa-bp-tab-panels .qa-bp-build-bot { display: block; }
+
+.qa-bp-build-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(233,78,119,0.08);
+  padding: 5px 12px;
+  border-radius: 100px;
+  margin-bottom: 14px;
+}
+.qa-bp-steps {
+  margin: 0 0 16px 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: qa-bp-step;
+}
+.qa-bp-steps li {
+  counter-increment: qa-bp-step;
+  position: relative;
+  padding: 10px 0 10px 40px;
+  font-size: 0.92rem;
+  color: var(--text);
+  border-bottom: 1px solid rgba(61,13,26,0.04);
+  line-height: 1.55;
+}
+.qa-bp-steps li:last-child { border-bottom: none; }
+.qa-bp-steps li::before {
+  content: counter(qa-bp-step);
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 26px;
+  height: 26px;
+  background: rgba(233,78,119,0.12);
+  color: var(--accent);
+  border-radius: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+.qa-bp-build-when {
+  background: rgba(244,241,236,0.7);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ---------- PILLAR 2 · SCQR flow ---------- */
+.qa-bp-scqr-intro,
+.qa-bp-aud-intro,
+.qa-bp-chart-intro,
+.qa-bp-qgate-intro {
+  font-size: 0.94rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+.qa-bp-scqr-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.qa-bp-scqr-block {
+  flex: 1 1 0;
+  min-width: 180px;
+  background: white;
+  border: 1px solid rgba(61,13,26,0.1);
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: qa-bp-fade-up 500ms cubic-bezier(0.25,0.46,0.45,0.94) both;
+  animation-delay: var(--qa-bp-delay, 0ms);
+  transition: transform 220ms ease, border-color 220ms ease;
+}
+.qa-bp-scqr-block:hover {
+  transform: translateY(-3px);
+  border-color: rgba(233,78,119,0.3);
+}
+.qa-bp-scqr-optional {
+  border-style: dashed;
+  background: rgba(244,241,236,0.5);
+}
+.qa-bp-scqr-letter {
+  width: 36px;
+  height: 36px;
+  border-radius: 100px;
+  background: linear-gradient(135deg, #e94e77 0%, #d13d64 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  box-shadow: 0 3px 10px rgba(233,78,119,0.3);
+}
+.qa-bp-scqr-optional .qa-bp-scqr-letter {
+  background: rgba(61,13,26,0.4);
+  box-shadow: none;
+}
+.qa-bp-scqr-body { display: flex; flex-direction: column; gap: 4px; }
+.qa-bp-scqr-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.qa-bp-scqr-opt-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  background: rgba(61,13,26,0.06);
+  padding: 2px 8px;
+  border-radius: 100px;
+}
+.qa-bp-scqr-q {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.qa-bp-scqr-ex {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.5;
+  border-top: 1px solid rgba(61,13,26,0.06);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+.qa-bp-scqr-arrow {
+  display: flex;
+  align-items: center;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: rgba(233,78,119,0.4);
+  flex-shrink: 0;
+}
+
+/* ---------- PILLAR 2 · Audience matrix ---------- */
+.qa-bp-aud-matrix {
+  background: white;
+  border: 1px solid rgba(61,13,26,0.08);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.qa-bp-aud-header-row,
+.qa-bp-aud-row {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1.5fr;
+  gap: 0;
+}
+.qa-bp-aud-header-row { background: rgba(244,241,236,0.6); }
+.qa-bp-aud-header-cell {
+  padding: 14px 18px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-right: 1px solid rgba(61,13,26,0.06);
+}
+.qa-bp-aud-header-cell:last-child { border-right: none; }
+.qa-bp-aud-row {
+  border-top: 1px solid rgba(61,13,26,0.06);
+}
+.qa-bp-aud-row-label {
+  padding: 18px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: rgba(244,241,236,0.4);
+  border-right: 1px solid rgba(61,13,26,0.06);
+  display: flex;
+  align-items: center;
+}
+.qa-bp-aud-cell {
+  padding: 18px;
+  border-right: 1px solid rgba(61,13,26,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: background 200ms ease;
+}
+.qa-bp-aud-cell:last-child { border-right: none; }
+.qa-bp-aud-cell:hover { background: rgba(233,78,119,0.04); }
+.qa-bp-aud-pattern {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Mono", monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+.qa-bp-aud-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.qa-bp-aud-desc {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ---------- PILLAR 3 · Slide anatomy ---------- */
+.qa-bp-slide-anatomy {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 28px;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(244,241,236,0.4) 0%, white 100%);
+  padding: 28px;
+  border-radius: 14px;
+}
+.qa-bp-slide-anatomy-visual {
+  display: flex;
+  justify-content: center;
+}
+.qa-bp-slide-anatomy-svg {
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  filter: drop-shadow(0 8px 24px rgba(61,13,26,0.08));
+}
+.qa-bp-elements-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.qa-bp-elem-row {
+  display: flex;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(61,13,26,0.04);
+  align-items: flex-start;
+}
+.qa-bp-elem-row:last-child { border-bottom: none; }
+.qa-bp-elem-num {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 100px;
+  background: var(--accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.78rem;
+  box-shadow: 0 2px 6px rgba(233,78,119,0.25);
+}
+.qa-bp-elem-body { flex: 1; min-width: 0; }
+.qa-bp-elem-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.qa-bp-elem-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* ---------- PILLAR 3 · Chart picker (CSS-only tabs) ---------- */
+.qa-bp-chart-picker {
+  background: white;
+  border: 1px solid rgba(61,13,26,0.08);
+  border-radius: 14px;
+  padding: 6px;
+}
+.qa-bp-chart-input { position: absolute; opacity: 0; pointer-events: none; }
+.qa-bp-chart-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  background: rgba(61,13,26,0.04);
+  padding: 5px;
+  border-radius: 10px;
+  margin-bottom: 4px;
+}
+.qa-bp-chart-tab {
+  padding: 12px 14px;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 220ms ease, color 220ms ease;
+}
+.qa-bp-chart-tab:hover { color: var(--text-primary); }
+.qa-bp-chart-panel { display: none; padding: 24px 22px 18px; animation: qa-bp-fade-up 350ms ease both; }
+#qa-bp-chart-rel:checked   ~ .qa-bp-chart-tabs label[for="qa-bp-chart-rel"],
+#qa-bp-chart-comp:checked  ~ .qa-bp-chart-tabs label[for="qa-bp-chart-comp"],
+#qa-bp-chart-dist:checked  ~ .qa-bp-chart-tabs label[for="qa-bp-chart-dist"],
+#qa-bp-chart-comp2:checked ~ .qa-bp-chart-tabs label[for="qa-bp-chart-comp2"] {
+  background: white;
+  color: var(--accent);
+  box-shadow: 0 2px 8px rgba(61,13,26,0.06);
+}
+#qa-bp-chart-rel:checked   ~ .qa-bp-chart-panels .qa-bp-chart-panel-rel,
+#qa-bp-chart-comp:checked  ~ .qa-bp-chart-panels .qa-bp-chart-panel-comp,
+#qa-bp-chart-dist:checked  ~ .qa-bp-chart-panels .qa-bp-chart-panel-dist,
+#qa-bp-chart-comp2:checked ~ .qa-bp-chart-panels .qa-bp-chart-panel-comp2 { display: block; }
+
+.qa-bp-chart-q {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+  letter-spacing: -0.008em;
+}
+.qa-bp-chart-opts {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.qa-bp-chart-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(244,241,236,0.5);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  color: var(--text);
+  font-weight: 500;
+  border: 1px solid transparent;
+  transition: border-color 200ms ease, background 200ms ease;
+}
+.qa-bp-chart-opt:hover {
+  background: white;
+  border-color: rgba(233,78,119,0.3);
+}
+.qa-bp-chart-opt-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 100px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(233,78,119,0.15);
+  flex-shrink: 0;
+}
+
+/* ---------- PILLAR 3 · Quality gate (3 columns) ---------- */
+.qa-bp-qgate {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.qa-bp-qgate-col {
+  background: white;
+  border: 1px solid rgba(61,13,26,0.08);
+  border-top: 4px solid var(--qa-bp-qg-color, rgba(233,78,119,0.4));
+  border-radius: 12px;
+  padding: 22px 20px;
+}
+.qa-bp-qgate-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(61,13,26,0.06);
+}
+.qa-bp-qgate-letter {
+  width: 28px;
+  height: 28px;
+  border-radius: 100px;
+  background: var(--qa-bp-qg-color, rgba(233,78,119,0.2));
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.qa-bp-qgate-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.012em;
+}
+.qa-bp-qgate-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.qa-bp-qgate-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(61,13,26,0.04);
+}
+.qa-bp-qgate-item:last-child { border-bottom: none; }
+.qa-bp-qgate-check {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: rgba(4,120,87,0.12);
+  color: rgba(4,120,87,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.7rem;
+  margin-top: 2px;
+}
+.qa-bp-qgate-item-body { flex: 1; min-width: 0; }
+.qa-bp-qgate-item-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  line-height: 1.4;
+}
+.qa-bp-qgate-item-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* ---------- FOOTER ---------- */
+.qa-bp-footer {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 32px;
+  padding: 24px 28px;
+  background: linear-gradient(135deg, #2d0e17 0%, #3d0d1a 100%);
+  border-radius: 16px;
+  color: white;
+}
+.qa-bp-footer-icon {
+  font-size: 2.2rem;
+  flex-shrink: 0;
+  animation: qa-bp-pulse 2.6s ease-in-out infinite;
+}
+.qa-bp-footer-text { flex: 1; }
+.qa-bp-footer-headline {
+  font-size: 1.04rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin-bottom: 4px;
+}
+.qa-bp-footer-sub {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.75);
+  line-height: 1.55;
+}
+.qa-bp-footer-sub strong { color: var(--accent); font-weight: 700; }
+
+/* ---------- Mobile (≤ 720px) ---------- */
+@media (max-width: 720px) {
+  .qa-bp-pillar { padding: 28px 22px; border-radius: 16px; }
+  .qa-bp-pillar-head { gap: 14px; }
+  .qa-bp-pillar-num { font-size: 2.2rem; }
+  .qa-bp-pillar-name { font-size: 1.4rem; }
+  .qa-bp-hero-tiles { grid-template-columns: 1fr; }
+  .qa-bp-pyramid-block,
+  .qa-bp-slide-anatomy { grid-template-columns: 1fr; gap: 22px; }
+  .qa-bp-principles { grid-template-columns: 1fr; }
+  .qa-bp-qgate { grid-template-columns: 1fr; }
+  .qa-bp-chart-tabs { grid-template-columns: repeat(2, 1fr); }
+  .qa-bp-scqr-flow { flex-direction: column; }
+  .qa-bp-scqr-arrow { transform: rotate(90deg); margin: 0 auto; }
+  .qa-bp-aud-header-row,
+  .qa-bp-aud-row { grid-template-columns: 1fr; }
+  .qa-bp-aud-row-label { border-right: none; border-bottom: 1px solid rgba(61,13,26,0.06); }
+}
+
 /* Skipped slide card — compact, no checklist, single clear banner */
 .qa-slide-card.skipped-card {
   opacity: 0.86;
@@ -2552,138 +3396,457 @@ def live_progress_html(
 
 
 def best_practices_html() -> str:
-    """Render the MBB-style best-practices checklist for the 'Buenas prácticas' tab.
+    """Render the dynamic "Buenas prácticas" panel built around the Minsait
+    "Presentaciones estructuradas" framework.
 
-    Static content — same structure that Holmes evaluates, presented as a
-    learnable checklist so the user knows what 'good' looks like before
-    uploading anything.
+    Structure (3 disciplinas):
+      1. Estructurar ideas — Pyramid + 3 principios (Sintetizar / Agrupar / Ordenar)
+      2. Storytelling      — S-C-(Q)-R + adaptación por audiencia
+      3. Plasmar en papel  — 8 elementos + chart picker + quality gate
+
+    All interactivity is pure CSS (input[type=radio]:checked selector hack)
+    so the panel renders inside st.markdown without needing components.html.
     """
-    sections = [
-        {
-            "label": "01 · Action titles",
-            "intro": "Cada slide se sostiene sola por su título.",
-            "items": [
-                ("Sujeto + verbo + insight cuantificado", "'Las ventas cayeron 18% en Q3 por la pérdida de los 3 top accounts' ✓ — no 'Análisis de ventas Q3'."),
-                ("Una sola idea por título", "Si necesitas 'y' o ';' para conectar dos ideas, divide en dos slides."),
-                ("Test de horizontal logic", "Lee solo los titles en orden. ¿Cuentan la historia sin abrir el deck? Si no, falla."),
-                ("Sin labels descriptivos", "'Contexto', 'Análisis', 'Conclusiones' son etiquetas — no titles."),
-            ],
-        },
-        {
-            "label": "02 · So-what por slide",
-            "intro": "El gráfico no es el insight. La implicación sí.",
-            "items": [
-                ("Responde '¿y qué?'", "¿Qué decisión habilita esta slide? Si solo describe data, falta el so-what."),
-                ("Takeaway arriba, evidencia abajo", "Pyramid Principle: la conclusión va primero, lo soporta abajo."),
-                ("Accionable, no descriptivo", "'El cliente debe reasignar inversión a digital' ✓ — no 'El canal digital crece'."),
-            ],
-        },
-        {
-            "label": "03 · Pyramid Principle / SCQA",
-            "intro": "Estructura de argumento de consultora.",
-            "items": [
-                ("Governing thought en la portada", "El argumento central del deck visible en slide 1 y dividers."),
-                ("Argumentos MECE", "Mutually Exclusive, Collectively Exhaustive. Sin solapes, sin gaps."),
-                ("Causa antes que consecuencia", "Primero evidencia, después conclusión. Nunca al revés."),
-                ("SCQA en la apertura", "Situación → Complicación → Pregunta → Respuesta. Sin Complicación, no hay urgencia."),
-            ],
-        },
-        {
-            "label": "04 · Storyline (horizontal logic)",
-            "intro": "El deck cuenta UNA historia, no N slides sueltos.",
-            "items": [
-                ("Secuencia coherente de titles", "Slide 1 → N: cada title se apoya en el anterior y prepara el siguiente."),
-                ("Dividers con título de sección", "Cada chapter empieza con un divider que anuncia el argumento de la sección."),
-                ("Sin slides redundantes", "Si dos slides dicen lo mismo, fusiona o elimina."),
-                ("Filename refleja el deck", "El nombre del archivo debe contener keywords del governing thought."),
-            ],
-        },
-        {
-            "label": "05 · Layout y consistencia",
-            "intro": "El detalle visual importa. Inconsistencias gritan junior.",
-            "items": [
-                ("Pie de página en la esquina inferior izquierda", "Convención de la consultora: footer alineado a la esquina inferior-izquierda. Mismo texto, misma posición (top + left), misma altura en todas las slides de contenido."),
-                ("Fuente brand: ForFuture Sans", "Familia oficial de la consultora. Pesos disponibles: Light, Regular, Medium, Bold, Black (cada uno con italic). Cualquier otra familia es una rotura de brand."),
-                ("Títulos en sentence case — NUNCA Title Case ni MAYÚSCULAS", "La consultora usa sentence case: solo la primera palabra y los nombres propios capitalizados. ✓ 'Las ventas cayeron 18% en Q3'. ✗ 'Las Ventas Cayeron 18% en Q3' (Title Case). ✗ 'LAS VENTAS CAYERON 18% EN Q3' (grito)."),
-                ("Mayúsculas consistentes en pie y secundarios", "Footer y subtítulos: todo title case, todo sentence case — sin mezcla entre slides."),
-                ("Jerarquía tipográfica clara", "Title, subtitle, body, caption — tamaños y pesos diferenciados pero consistentes."),
-            ],
-        },
-        {
-            "label": "06 · Densidad de texto",
-            "intro": "Si necesitas leer el slide, es muy denso.",
-            "items": [
-                ("Máximo ~250 palabras por slide", "Más que eso: divide en dos o agrega un visual que resuma."),
-                ("Bullets de 2-3 líneas", "Nunca párrafos de prosa en bullets. Si no entra en 3 líneas, reescríbelo."),
-                ("Tamaño mínimo de fuente: 9pt", "Cualquier texto bajo 9pt es ilegible en proyector e impresión."),
-                ("Si hay mucho texto, agrega visuales", "Un gráfico o esquema bien hecho reemplaza media página de prosa."),
-            ],
-        },
-        {
-            "label": "07 · Gráficos y visuales",
-            "intro": "El gráfico vende el insight. Sin contexto, no vende nada.",
-            "items": [
-                ("Ejes con unidades visibles", "Siempre. '%', 'M USD', 'unidades' — no asumas que se entiende."),
-                ("Fuente + periodo del dato", "'Fuente: SUNAT, 2020-2024' al pie del gráfico. Sin esto, es opinión."),
-                ("Takeaway en el título del gráfico", "El título dice la conclusión, no describe los ejes."),
-                ("Sin ruido visual", "Sin 3D, sin gradientes decorativos, sin leyendas redundantes, sin gridlines innecesarios."),
-                ("Una sola comparación por gráfico", "Si contesta dos preguntas, divide en dos gráficos."),
-            ],
-        },
-        {
-            "label": "08 · Boilerplate (Holmes los ignora)",
-            "intro": "Estos slides son estructurales, no llevan action title.",
-            "items": [
-                ("Carátula / portada", "Solo título del proyecto + cliente + fecha. Sin so-what."),
-                ("Avisos de confidencialidad", "Plantilla legal. Holmes la detecta y la salta."),
-                ("Índice / agenda", "Solo lista de capítulos. Holmes la detecta por título o por estructura numerada."),
-                ("Dividers de sección", "Solo número + nombre del chapter. Holmes los detecta por layout o por título exacto."),
-                ("Referencias / credenciales / CVs", "Material de cierre. Holmes los detecta por keywords del título."),
-                ("Cierre / contacto / gracias", "Holmes los detecta y los salta."),
-            ],
-        },
+
+    # ------------------------------------------------------------------
+    # PILLAR 1 — Estructurar ideas (Pyramid + 3 principles)
+    # ------------------------------------------------------------------
+    pyramid_svg = '''
+<svg class="qa-bp-pyramid-svg" viewBox="0 0 360 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="qaPyrTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e94e77"/>
+      <stop offset="100%" stop-color="#d13d64"/>
+    </linearGradient>
+    <linearGradient id="qaPyrMid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f18ba6"/>
+      <stop offset="100%" stop-color="#e94e77"/>
+    </linearGradient>
+    <linearGradient id="qaPyrBot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fbd5de"/>
+      <stop offset="100%" stop-color="#f18ba6"/>
+    </linearGradient>
+  </defs>
+  <g class="qa-bp-pyr-layer qa-bp-pyr-top">
+    <polygon points="180,20 220,80 140,80" fill="url(#qaPyrTop)"/>
+    <text x="180" y="58" text-anchor="middle" fill="white" font-weight="700" font-size="11">Gov. thought</text>
+  </g>
+  <g class="qa-bp-pyr-layer qa-bp-pyr-mid">
+    <polygon points="140,85 220,85 260,150 100,150" fill="url(#qaPyrMid)"/>
+    <text x="180" y="124" text-anchor="middle" fill="white" font-weight="700" font-size="11">Líneas clave</text>
+  </g>
+  <g class="qa-bp-pyr-layer qa-bp-pyr-bot">
+    <polygon points="100,155 260,155 310,235 50,235" fill="url(#qaPyrBot)"/>
+    <text x="180" y="200" text-anchor="middle" fill="#2d0e17" font-weight="700" font-size="11">Soporte (datos · facts)</text>
+  </g>
+</svg>'''
+
+    pyramid_layers = [
+        ("Governing thought", "Síntesis principal", "Responde la pregunta central del lector. Una afirmación convincente, breve y clara — no un resumen."),
+        ("Líneas clave", "Cómo & por qué", "Acciones y razones que sostienen el governing thought. MECE entre sí. Mismo nivel de abstracción."),
+        ("Soporte", "Hechos & datos", "Pertinente, suficiente y basado en hechos. Cada línea clave tiene su propio bloque de soporte."),
+    ]
+    pyramid_layers_html = "".join(
+        f'<div class="qa-bp-pyr-card">'
+        f'<div class="qa-bp-pyr-card-name">{_escape_html(name)}</div>'
+        f'<div class="qa-bp-pyr-card-tag">{_escape_html(tag)}</div>'
+        f'<div class="qa-bp-pyr-card-desc">{_escape_html(desc)}</div>'
+        f'</div>'
+        for name, tag, desc in pyramid_layers
+    )
+
+    principles = [
+        ("01", "Sintetizar", "no resumir",
+         "El nivel superior sintetiza al inferior — no parafrasea. Si parafraseas, no aportas 'so-what'.",
+         "❌ Resumen", "Mis clientes hacen más reclamaciones por Contact Center.",
+         "✅ Síntesis", "¡Necesito un plan de choque para implementar un Contact Center avanzado!"),
+        ("02", "Agrupar", "MECE",
+         "Mutually Exclusive, Collectively Exhaustive. Las ideas del mismo nivel pertenecen al mismo tipo: razones, causas, pasos, partes.",
+         "❌ Mezclado", "Costos, equipo, junio 2026, ROI.",
+         "✅ MECE", "Costos / Ingresos / Margen (todos componentes financieros)."),
+        ("03", "Ordenar", "lógicamente",
+         "3 órdenes válidos: cronológico (etapas), de grado (más → menos importante), estructural (descomposición MECE).",
+         "❌ Random", "Renegociar contrato, redefinir proceso, reducir costes.",
+         "✅ De grado", "Reducir costes (8%), redefinir proceso (5%), renegociar (3%)."),
+    ]
+    principles_html = "".join(
+        f'<article class="qa-bp-principle">'
+        f'<div class="qa-bp-principle-head">'
+        f'<span class="qa-bp-principle-num">{_escape_html(num)}</span>'
+        f'<div class="qa-bp-principle-title">'
+        f'<span class="qa-bp-principle-name">{_escape_html(name)}</span>'
+        f'<span class="qa-bp-principle-tag">{_escape_html(tag)}</span>'
+        f'</div></div>'
+        f'<p class="qa-bp-principle-desc">{_escape_html(desc)}</p>'
+        f'<div class="qa-bp-principle-examples">'
+        f'<div class="qa-bp-ex qa-bp-ex-bad"><span class="qa-bp-ex-tag">{_escape_html(bad_tag)}</span><span class="qa-bp-ex-txt">{_escape_html(bad_txt)}</span></div>'
+        f'<div class="qa-bp-ex qa-bp-ex-good"><span class="qa-bp-ex-tag">{_escape_html(good_tag)}</span><span class="qa-bp-ex-txt">{_escape_html(good_txt)}</span></div>'
+        f'</div></article>'
+        for num, name, tag, desc, bad_tag, bad_txt, good_tag, good_txt in principles
+    )
+
+    # Bottom-up vs Top-down toggle (CSS-only tabs)
+    buildpath_html = '''
+<div class="qa-bp-tabs qa-bp-tabs-build">
+  <input type="radio" id="qa-bp-buildtop" name="qa-bp-build" class="qa-bp-tab-input" checked>
+  <input type="radio" id="qa-bp-buildbot" name="qa-bp-build" class="qa-bp-tab-input">
+  <div class="qa-bp-tab-labels">
+    <label for="qa-bp-buildtop" class="qa-bp-tab-label"><span class="qa-bp-tab-arrow">↓</span> Top-down</label>
+    <label for="qa-bp-buildbot" class="qa-bp-tab-label"><span class="qa-bp-tab-arrow">↑</span> Bottom-up</label>
+  </div>
+  <div class="qa-bp-tab-panels">
+    <div class="qa-bp-tab-panel qa-bp-build-top">
+      <div class="qa-bp-build-tag">Desde el mensaje general</div>
+      <ol class="qa-bp-steps">
+        <li>Plantear la pregunta del lector.</li>
+        <li>Dar la respuesta (governing thought).</li>
+        <li>Desarrollar la línea clave que explica esa respuesta.</li>
+        <li>Estructurar los puntos de apoyo (¿cómo? ¿por qué?).</li>
+      </ol>
+      <div class="qa-bp-build-when">Mejor para: <strong>alta dirección</strong> — van al grano, ya conocen el contexto.</div>
+    </div>
+    <div class="qa-bp-tab-panel qa-bp-build-bot">
+      <div class="qa-bp-build-tag">Desde los hechos</div>
+      <ol class="qa-bp-steps">
+        <li>Listar conclusiones como ideas completas (con verbos).</li>
+        <li>Buscar patrones para agrupar.</li>
+        <li>Escribir una síntesis por grupo (síntesis A, B…).</li>
+        <li>Síntesis general → governing thought del storyline.</li>
+      </ol>
+      <div class="qa-bp-build-when">Mejor para: <strong>directivo intermedio</strong> — necesita ver el razonamiento.</div>
+    </div>
+  </div>
+</div>'''
+
+    # ------------------------------------------------------------------
+    # PILLAR 2 — Storytelling (S-C-Q-R + audience matrix)
+    # ------------------------------------------------------------------
+    scqr_blocks = [
+        ("S", "Situación", "¿Dónde estamos ahora?", "Durante los últimos 10 años hemos disfrutado de un monopolio en nuestros mercados clave."),
+        ("C", "Complicación", "Algo cambió", "Ahora la desregulación nos está abriendo a la competencia."),
+        ("Q", "Pregunta", "¿Qué hay que resolver?", "¿Cómo vamos a responder?", "opcional"),
+        ("R", "Resolución", "Lo que querés que haga la audiencia", "Lanzar una nueva campaña de marketing + programa de fidelización."),
+    ]
+    scqr_html = ""
+    for idx, block in enumerate(scqr_blocks, start=1):
+        letter, name, q, ex = block[0], block[1], block[2], block[3]
+        is_optional = len(block) > 4
+        opt_class = " qa-bp-scqr-optional" if is_optional else ""
+        opt_badge = '<span class="qa-bp-scqr-opt-badge">opcional</span>' if is_optional else ""
+        scqr_html += (
+            f'<div class="qa-bp-scqr-block{opt_class}" style="--qa-bp-delay: {idx * 80}ms">'
+            f'<div class="qa-bp-scqr-letter">{letter}</div>'
+            f'<div class="qa-bp-scqr-body">'
+            f'<div class="qa-bp-scqr-name">{_escape_html(name)}{opt_badge}</div>'
+            f'<div class="qa-bp-scqr-q">{_escape_html(q)}</div>'
+            f'<div class="qa-bp-scqr-ex">"{_escape_html(ex)}"</div>'
+            f'</div></div>'
+        )
+        if idx < len(scqr_blocks):
+            scqr_html += '<div class="qa-bp-scqr-arrow" aria-hidden="true">→</div>'
+
+    # Indexed as [row][col]: row 0 = Alta dirección, row 1 = Mando medio
+    #                        col 0 = Inconsciente,    col 1 = Consciente
+    audience_grid = [
+        [  # Alta dirección
+            ("S-C-R", "Inconsciente", "Relajada, baja inercia al cambio. Necesita ver la situación y complicación antes de la resolución."),
+            ("R + S-C en backup", "Consciente", "Implicada, va al grano. La respuesta primero; el contexto en backup por si pregunta."),
+        ],
+        [  # Mando medio
+            ("S-C-Q-R", "Inconsciente", "Impaciente pero inconsciente. Necesita la pregunta explícita para enganchar."),
+            ("S-C-R", "Consciente", "Sensible al problema. Sin pregunta, ya sabe qué se está discutiendo."),
+        ],
     ]
 
-    blocks = []
-    for sec in sections:
-        # Split the original 'NN · Title' label into a refined typographic
-        # number + name layout.
-        raw_label = sec["label"]
-        if " · " in raw_label:
-            num_str, name_str = raw_label.split(" · ", 1)
-        else:
-            num_str, name_str = "", raw_label
+    def _aud_cell(pattern: str, aware: str, desc: str) -> str:
+        return (
+            '<div class="qa-bp-aud-cell">'
+            f'<div class="qa-bp-aud-pattern">{_escape_html(pattern)}</div>'
+            f'<div class="qa-bp-aud-meta">'
+            f'<span class="qa-bp-aud-aware">{_escape_html(aware)}</span>'
+            f'</div>'
+            f'<div class="qa-bp-aud-desc">{_escape_html(desc)}</div>'
+            '</div>'
+        )
 
+    aud_row_labels = ["Alta dirección", "Mando medio"]
+    aud_rows_html = ""
+    for row_label, row_cells in zip(aud_row_labels, audience_grid):
+        aud_rows_html += (
+            '<div class="qa-bp-aud-row">'
+            f'<div class="qa-bp-aud-row-label">{_escape_html(row_label)}</div>'
+            + _aud_cell(*row_cells[0])
+            + _aud_cell(*row_cells[1])
+            + '</div>'
+        )
+
+    # ------------------------------------------------------------------
+    # PILLAR 3 — Plasmar en papel (8 elements + chart picker + quality gate)
+    # ------------------------------------------------------------------
+    # Schematic SVG of a slide with numbered hotspots for the 8 elements.
+    slide_anatomy_svg = '''
+<svg class="qa-bp-slide-anatomy-svg" viewBox="0 0 480 280" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <!-- Slide canvas -->
+  <rect x="10" y="10" width="460" height="260" fill="white" stroke="rgba(61,13,26,0.15)" stroke-width="1" rx="8"/>
+  <!-- 6: Navigator (top-right) -->
+  <rect x="380" y="22" width="80" height="14" fill="rgba(233,78,119,0.08)" rx="3"/>
+  <circle cx="455" cy="29" r="9" fill="#e94e77"/>
+  <text x="455" y="33" text-anchor="middle" fill="white" font-weight="700" font-size="10">6</text>
+  <!-- 1: Kicker -->
+  <rect x="24" y="22" width="120" height="10" fill="rgba(233,78,119,0.18)" rx="2"/>
+  <circle cx="20" cy="27" r="9" fill="#e94e77"/>
+  <text x="20" y="31" text-anchor="middle" fill="white" font-weight="700" font-size="10">1</text>
+  <!-- 2: Title -->
+  <rect x="24" y="42" width="350" height="18" fill="rgba(45,14,23,0.85)" rx="2"/>
+  <circle cx="20" cy="51" r="9" fill="#e94e77"/>
+  <text x="20" y="55" text-anchor="middle" fill="white" font-weight="700" font-size="10">2</text>
+  <!-- 3: Tipo de slide -->
+  <rect x="410" y="70" width="50" height="10" fill="rgba(108,55,168,0.18)" rx="2"/>
+  <circle cx="420" cy="92" r="9" fill="#e94e77"/>
+  <text x="420" y="96" text-anchor="middle" fill="white" font-weight="700" font-size="10">3</text>
+  <!-- 4: Estructura del contenido (left column) -->
+  <rect x="24" y="80" width="160" height="160" fill="rgba(244,241,236,0.6)" stroke="rgba(61,13,26,0.08)" rx="4"/>
+  <circle cx="20" cy="85" r="9" fill="#e94e77"/>
+  <text x="20" y="89" text-anchor="middle" fill="white" font-weight="700" font-size="10">4</text>
+  <!-- 5: Contenido (right column with bullets) -->
+  <rect x="200" y="80" width="200" height="160" fill="rgba(244,241,236,0.4)" rx="4"/>
+  <line x1="210" y1="100" x2="380" y2="100" stroke="rgba(45,14,23,0.4)" stroke-width="2"/>
+  <line x1="210" y1="120" x2="370" y2="120" stroke="rgba(45,14,23,0.3)" stroke-width="2"/>
+  <line x1="210" y1="140" x2="375" y2="140" stroke="rgba(45,14,23,0.3)" stroke-width="2"/>
+  <line x1="210" y1="160" x2="350" y2="160" stroke="rgba(45,14,23,0.3)" stroke-width="2"/>
+  <circle cx="395" cy="92" r="9" fill="#e94e77"/>
+  <text x="395" y="96" text-anchor="middle" fill="white" font-weight="700" font-size="10">5</text>
+  <!-- 7: Footer / legend (bottom-left) -->
+  <rect x="24" y="248" width="180" height="10" fill="rgba(61,13,26,0.18)" rx="2"/>
+  <circle cx="20" cy="253" r="9" fill="#e94e77"/>
+  <text x="20" y="257" text-anchor="middle" fill="white" font-weight="700" font-size="10">7</text>
+  <!-- 8: Page number (bottom-right) -->
+  <text x="450" y="260" text-anchor="middle" fill="rgba(61,13,26,0.5)" font-weight="600" font-size="11">12</text>
+  <circle cx="455" cy="253" r="9" fill="#e94e77"/>
+  <text x="455" y="257" text-anchor="middle" fill="white" font-weight="700" font-size="10">8</text>
+</svg>'''
+
+    slide_elements = [
+        ("1", "Supertítulo (kicker)", "Eyebrow tag arriba del título. Da contexto rápido (cap. número, tema)."),
+        ("2", "Título", "Action title — afirmación con insight. Lo más importante de la slide."),
+        ("3", "Tipo de slide", "Preliminar · Backup · Ilustrativa · No exhaustiva · Discusión."),
+        ("4", "Estructura del contenido", "Texto · Conceptos · Cifras — elegido según el mensaje."),
+        ("5", "Contenido", "Sintetizado, coherente, directo, relevante. Una sola idea."),
+        ("6", "Navegadores (tracker)", "Sección actual del deck. Numérico, descriptivo o visual."),
+        ("7", "Leyenda / pie", "Fuente del dato, periodo, nota al pie. Exhaustivo y preciso."),
+        ("8", "Composición visual", "Alineación, espaciado, jerarquía — lo que percibe el ojo."),
+    ]
+    elements_legend_html = "".join(
+        f'<li class="qa-bp-elem-row">'
+        f'<span class="qa-bp-elem-num">{num}</span>'
+        f'<div class="qa-bp-elem-body">'
+        f'<div class="qa-bp-elem-name">{_escape_html(name)}</div>'
+        f'<div class="qa-bp-elem-desc">{_escape_html(desc)}</div>'
+        f'</div></li>'
+        for num, name, desc in slide_elements
+    )
+
+    # Chart picker — CSS-only with radio inputs
+    chart_families = [
+        ("rel", "Relación", "¿Hay correlación entre 2-3 variables?",
+         ["Dispersión", "Burbujas", "Columnas ancho variable"]),
+        ("comp", "Comparación", "¿Cómo se comparan magnitudes entre elementos?",
+         ["Columnas", "Barras", "Líneas (datos cíclicos)"]),
+        ("dist", "Distribución", "¿Cómo se distribuye una variable?",
+         ["Barras", "Líneas", "Dispersión (2 vars)"]),
+        ("comp2", "Composición", "¿Cómo se descompone un total?",
+         ["Sectores", "Columnas apiladas 100%", "Cascada"]),
+    ]
+    chart_picker_html = '<div class="qa-bp-chart-picker">'
+    # Radio inputs (hidden, control which panel shows)
+    for i, (slug, _, _, _) in enumerate(chart_families):
+        checked = " checked" if i == 0 else ""
+        chart_picker_html += f'<input type="radio" id="qa-bp-chart-{slug}" name="qa-bp-chart" class="qa-bp-chart-input"{checked}>'
+    # Labels (tab triggers)
+    chart_picker_html += '<div class="qa-bp-chart-tabs">'
+    for slug, name, _, _ in chart_families:
+        chart_picker_html += f'<label for="qa-bp-chart-{slug}" class="qa-bp-chart-tab">{_escape_html(name)}</label>'
+    chart_picker_html += '</div>'
+    # Panels
+    chart_picker_html += '<div class="qa-bp-chart-panels">'
+    for slug, name, q, options in chart_families:
+        opts_html = "".join(
+            f'<li class="qa-bp-chart-opt"><span class="qa-bp-chart-opt-dot"></span>{_escape_html(o)}</li>'
+            for o in options
+        )
+        chart_picker_html += (
+            f'<div class="qa-bp-chart-panel qa-bp-chart-panel-{slug}">'
+            f'<div class="qa-bp-chart-q">{_escape_html(q)}</div>'
+            f'<ul class="qa-bp-chart-opts">{opts_html}</ul>'
+            f'</div>'
+        )
+    chart_picker_html += '</div></div>'
+
+    # Quality gate — 3 dimensions
+    quality_gate = [
+        ("A", "Formato y ortografía", "rgba(108,55,168,0.12)", [
+            ("Fuente única", "Mismo formato de fuente en toda la presentación."),
+            ("Sin errores", "Ortografía + gramática limpios en todos los idiomas."),
+            ("Alineación H y V", "Todos los objetos y textos alineados a una grilla."),
+            ("Tamaño legible", "Cuerpo ≥ 11pt; fuentes ≥ 9pt en pie y secundarios."),
+            ("Espaciado equitativo", "Distribución uniforme de objetos en la slide."),
+            ("Anglicismos en cursiva", "Si se usan, *italic*. Mejor reemplazar."),
+        ]),
+        ("B", "Consistencia del lenguaje", "rgba(233,78,119,0.12)", [
+            ("Terminología coherente", "Mismas abreviaturas / acrónimos / colores en todo el deck."),
+            ("Action titles", "Todos los títulos invocan o promueven acción."),
+            ("Escritura paralela", "Bullets: TODOS verbos o TODOS sustantivos. No mezcla."),
+            ("Verbos de acción", "Definir / implementar / evaluar — no es / son / está."),
+            ("Negritas consistentes", "Énfasis siempre en el mismo tipo: cifras O conceptos."),
+            ("Simplicidad", "Solo las palabras necesarias. Ni más ni menos."),
+        ]),
+        ("C", "Precisión y contenido", "rgba(20,90,150,0.12)", [
+            ("Charts coherentes", "Pies suman 100%, mismos decimales por valor."),
+            ("1 mensaje por slide", "Si necesitas 'y' o ';' para conectar, divide en dos."),
+            ("Gráficos auto-explicativos", "Sin aclaraciones orales: el gráfico habla solo."),
+            ("Orientación al so-what", "Conclusión clara: en el título o destacada en el cuerpo."),
+            ("Framework efectivo", "La estructura encaja con las ideas que querés presentar."),
+            ("Fuente del dato", "Footer del gráfico: 'Fuente: X, periodo Y'."),
+        ]),
+    ]
+    quality_gate_html = '<div class="qa-bp-qgate">'
+    for letter, name, color, items in quality_gate:
         items_html = "".join(
-            '<li class="qa-bp-item">'
-            '<span class="qa-bp-marker" aria-hidden="true"></span>'
-            '<div class="qa-bp-item-body">'
-            f'<div class="qa-bp-item-title">{_escape_html(title)}</div>'
-            f'<div class="qa-bp-item-detail">{_escape_html(detail)}</div>'
-            '</div>'
-            '</li>'
-            for title, detail in sec["items"]
+            f'<li class="qa-bp-qgate-item">'
+            f'<span class="qa-bp-qgate-check" aria-hidden="true">✓</span>'
+            f'<div class="qa-bp-qgate-item-body">'
+            f'<div class="qa-bp-qgate-item-name">{_escape_html(t)}</div>'
+            f'<div class="qa-bp-qgate-item-desc">{_escape_html(d)}</div>'
+            f'</div></li>'
+            for t, d in items
         )
-        blocks.append(
-            '<section class="qa-bp-section">'
-            '<header class="qa-bp-section-head">'
-            f'<span class="qa-bp-section-num">{_escape_html(num_str)}</span>'
-            '<div class="qa-bp-section-titles">'
-            f'<h3 class="qa-bp-section-name">{_escape_html(name_str)}</h3>'
-            f'<p class="qa-bp-section-intro">{_escape_html(sec["intro"])}</p>'
-            '</div>'
-            '</header>'
-            f'<ul class="qa-bp-list">{items_html}</ul>'
-            '</section>'
+        quality_gate_html += (
+            f'<section class="qa-bp-qgate-col" style="--qa-bp-qg-color: {color}">'
+            f'<header class="qa-bp-qgate-head">'
+            f'<span class="qa-bp-qgate-letter">{letter}</span>'
+            f'<span class="qa-bp-qgate-name">{_escape_html(name)}</span>'
+            f'</header>'
+            f'<ul class="qa-bp-qgate-list">{items_html}</ul>'
+            f'</section>'
         )
+    quality_gate_html += '</div>'
+
+    # ------------------------------------------------------------------
+    # Hero — 3 disciplinas tiles
+    # ------------------------------------------------------------------
+    hero_tiles = [
+        ("01", "Estructurar", "Pirámide de Minto", "Governing thought · Líneas clave · Soporte"),
+        ("02", "Storytelling", "S-C-(Q)-R", "Situación · Complicación · Pregunta · Resolución"),
+        ("03", "Plasmar", "8 elementos del slide", "Action title · contenido · navegador · pie"),
+    ]
+    hero_tiles_html = "".join(
+        f'<a href="#qa-bp-pillar-{int(num)}" class="qa-bp-hero-tile">'
+        f'<span class="qa-bp-hero-tile-num">{_escape_html(num)}</span>'
+        f'<div class="qa-bp-hero-tile-body">'
+        f'<div class="qa-bp-hero-tile-name">{_escape_html(name)}</div>'
+        f'<div class="qa-bp-hero-tile-method">{_escape_html(method)}</div>'
+        f'<div class="qa-bp-hero-tile-sub">{_escape_html(sub)}</div>'
+        f'</div></a>'
+        for num, name, method, sub in hero_tiles
+    )
+
+    # ------------------------------------------------------------------
+    # Compose the full panel
+    # ------------------------------------------------------------------
     return (
-        '<div class="qa-bp-wrapper">'
-        '<div class="qa-bp-header">'
-        '<div class="qa-bp-eyebrow">Holmes evalúa contra este estándar</div>'
-        '<h2 class="qa-bp-title">Buenas prácticas para decks de consultoría</h2>'
-        '<p class="qa-bp-sub">MECE, Pyramid Principle, SCQA, Minto — el estándar que todo Minsaiter debe conocer. Holmes audita cada slide contra esta lista.</p>'
+        '<div class="qa-bp-wrapper qa-bp-v2">'
+
+        # HERO
+        '<div class="qa-bp-hero">'
+        '<div class="qa-bp-eyebrow">📘 Minsait playbook · Presentaciones estructuradas</div>'
+        '<h2 class="qa-bp-title">El estándar de presentaciones, slide por slide</h2>'
+        '<p class="qa-bp-sub">Holmes audita contra <strong>tres disciplinas secuenciales</strong> que toda presentación de consultoría debe dominar. Cada pilar tiene reglas concretas — abajo está el playbook.</p>'
+        f'<div class="qa-bp-hero-tiles">{hero_tiles_html}</div>'
         '</div>'
-        f'{"".join(blocks)}'
+
+        # ============== PILLAR 1: ESTRUCTURAR ==============
+        '<section class="qa-bp-pillar" id="qa-bp-pillar-1">'
+        '<header class="qa-bp-pillar-head">'
+        '<div class="qa-bp-pillar-num">01</div>'
+        '<div class="qa-bp-pillar-titles">'
+        '<div class="qa-bp-pillar-overline">Disciplina 1</div>'
+        '<h3 class="qa-bp-pillar-name">Estructurar ideas</h3>'
+        '<p class="qa-bp-pillar-tagline">Sin pirámide, no hay historia. Antes de redactar, sintetiza.</p>'
+        '</div></header>'
+
+        '<div class="qa-bp-pyramid-block">'
+        '<div class="qa-bp-pyramid-visual">'
+        f'{pyramid_svg}'
+        '<div class="qa-bp-pyramid-caption">Pirámide de Minto · responde la pregunta central → desarrolla razones → soporta con datos.</div>'
+        '</div>'
+        f'<div class="qa-bp-pyr-cards">{pyramid_layers_html}</div>'
+        '</div>'
+
+        '<div class="qa-bp-section-divider"><span>3 principios para construirla</span></div>'
+        f'<div class="qa-bp-principles">{principles_html}</div>'
+
+        '<div class="qa-bp-section-divider"><span>Cómo construirla — dos rutas</span></div>'
+        f'{buildpath_html}'
+        '</section>'
+
+        # ============== PILLAR 2: STORYTELLING ==============
+        '<section class="qa-bp-pillar qa-bp-pillar-2" id="qa-bp-pillar-2">'
+        '<header class="qa-bp-pillar-head">'
+        '<div class="qa-bp-pillar-num">02</div>'
+        '<div class="qa-bp-pillar-titles">'
+        '<div class="qa-bp-pillar-overline">Disciplina 2</div>'
+        '<h3 class="qa-bp-pillar-name">Storytelling</h3>'
+        '<p class="qa-bp-pillar-tagline">Un conjunto de ideas en orden lógico que provoca una llamada a la acción.</p>'
+        '</div></header>'
+
+        '<div class="qa-bp-scqr-intro">Marco S-C-(Q)-R · la estructura clásica para construir cualquier historia:</div>'
+        f'<div class="qa-bp-scqr-flow">{scqr_html}</div>'
+
+        '<div class="qa-bp-section-divider"><span>Adaptación por audiencia</span></div>'
+        '<div class="qa-bp-aud-intro">El mismo storyline cuenta distinto según quién escuche:</div>'
+        '<div class="qa-bp-aud-matrix">'
+        '<div class="qa-bp-aud-header-row">'
+        '<div class="qa-bp-aud-header-cell"></div>'
+        '<div class="qa-bp-aud-header-cell">Inconsciente del problema</div>'
+        '<div class="qa-bp-aud-header-cell">Consciente del problema</div>'
+        '</div>'
+        f'{aud_rows_html}'
+        '</div>'
+        '</section>'
+
+        # ============== PILLAR 3: PLASMAR EN PAPEL ==============
+        '<section class="qa-bp-pillar qa-bp-pillar-3" id="qa-bp-pillar-3">'
+        '<header class="qa-bp-pillar-head">'
+        '<div class="qa-bp-pillar-num">03</div>'
+        '<div class="qa-bp-pillar-titles">'
+        '<div class="qa-bp-pillar-overline">Disciplina 3</div>'
+        '<h3 class="qa-bp-pillar-name">Plasmar la historia en papel</h3>'
+        '<p class="qa-bp-pillar-tagline">Una sola idea por slide. Título acción. Soporte para que llegue.</p>'
+        '</div></header>'
+
+        '<div class="qa-bp-section-sub">Los 8 elementos de una diapositiva</div>'
+        '<div class="qa-bp-slide-anatomy">'
+        f'<div class="qa-bp-slide-anatomy-visual">{slide_anatomy_svg}</div>'
+        f'<ol class="qa-bp-elements-legend">{elements_legend_html}</ol>'
+        '</div>'
+
+        '<div class="qa-bp-section-divider"><span>Elegir el gráfico correcto</span></div>'
+        '<div class="qa-bp-chart-intro">¿Qué querés mostrar? Cada familia de gráficos sirve para una pregunta distinta:</div>'
+        f'{chart_picker_html}'
+
+        '<div class="qa-bp-section-divider"><span>Quality gate · checklist final</span></div>'
+        '<div class="qa-bp-qgate-intro">Las 3 dimensiones que todo deck debe cumplir antes de enviarse:</div>'
+        f'{quality_gate_html}'
+        '</section>'
+
+        # FOOTER
+        '<footer class="qa-bp-footer">'
+        '<div class="qa-bp-footer-icon">🔍</div>'
+        '<div class="qa-bp-footer-text">'
+        '<div class="qa-bp-footer-headline">Holmes audita slide por slide contra este estándar</div>'
+        '<div class="qa-bp-footer-sub">Más de <strong>20 checks determinísticos</strong> (action title, so-what, fuente, casing, paralelismo de bullets, verbos vinculantes, anglicismos, negritas, supertítulo, footer alineado…) + análisis semántico vía LLM cuando hay API key configurada.</div>'
+        '</div></footer>'
+
         '</div>'
     )
 
