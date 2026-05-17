@@ -2174,7 +2174,7 @@ def best_practices_html() -> str:
         },
         {
             "label": "05 · Layout y consistencia",
-            "intro": "El detalle visual importa. Inconsistencias gritan amateur.",
+            "intro": "El detalle visual importa. Inconsistencias gritan junior.",
             "items": [
                 ("Pie de página consistente", "Mismo texto, misma posición (top/left), misma altura en todas las slides de contenido."),
                 ("Mayúsculas consistentes", "Todo title case, todo sentence case, o todo UPPER — no mezcla."),
