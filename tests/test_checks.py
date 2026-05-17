@@ -575,10 +575,10 @@ def test_check_font_family_skips_when_no_explicit_font():
 # -------- check_title_not_uppercase --------
 
 def test_check_title_not_uppercase_flags_all_caps():
-    slide = {"title": "ANÁLISIS DE VENTAS"}
+    slide = {"title": "ANÁLISIS DE VENTAS DEL ÚLTIMO TRIMESTRE"}
     result = check_title_not_uppercase(slide)
     assert result["ok"] is False
-    assert result["suggestion"] is not None
+    assert result["case_violation"] == "all_caps"
     assert "sentence case" in result["suggestion"]
 
 
@@ -588,10 +588,23 @@ def test_check_title_not_uppercase_passes_sentence_case():
     assert result["ok"] is True
 
 
-def test_check_title_not_uppercase_passes_title_case():
-    slide = {"title": "Las Ventas Cayeron 18% en Q3"}
+def test_check_title_not_uppercase_flags_title_case():
+    """Title Case is NOT allowed — consultancy uses sentence case only."""
+    slide = {"title": "Las Ventas Cayeron 18% en el Tercer Trimestre"}
     result = check_title_not_uppercase(slide)
-    assert result["ok"] is True
+    assert result["ok"] is False
+    assert result["case_violation"] == "title_case"
+    assert "sentence case" in result["suggestion"]
+
+
+def test_check_title_not_uppercase_preserves_acronyms_in_suggestion():
+    """Sentence-case rewrite must preserve short ALL-CAPS tokens (acronyms)."""
+    slide = {"title": "Estrategia de PMO Para el Programa CV"}
+    result = check_title_not_uppercase(slide)
+    assert result["ok"] is False
+    # Acronyms PMO and CV must remain capitalized in the suggestion
+    assert "PMO" in result["suggestion"]
+    assert "CV" in result["suggestion"]
 
 
 def test_check_title_not_uppercase_skips_short_titles():
@@ -605,6 +618,13 @@ def test_check_title_not_uppercase_handles_empty_title():
     slide = {"title": None}
     result = check_title_not_uppercase(slide)
     assert result["applicable"] is False
+
+
+def test_check_title_not_uppercase_two_word_title_not_flagged_as_title_case():
+    """Short capitalized title (e.g. proper noun start) should not trip title-case detection."""
+    slide = {"title": "Plan de implementación"}  # only 'Plan' capitalized → sentence case
+    result = check_title_not_uppercase(slide)
+    assert result["ok"] is True
 
 
 # -------- footer alignment outliers --------

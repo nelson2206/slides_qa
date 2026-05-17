@@ -297,19 +297,48 @@ def check_font_family(slide: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def check_title_not_uppercase(slide: dict[str, Any]) -> dict[str, Any]:
-    """Flag titles rendered in ALL CAPS — the consultancy convention is
-    sentence case / title case, never full uppercase.
+def _to_sentence_case(title: str) -> str:
+    """Convert a title to sentence case while preserving short ALL-CAPS tokens
+    that are usually acronyms (PMO, CV, P&L, Q3, IT, etc.)."""
+    words = title.split()
+    if not words:
+        return title
+    out: list[str] = []
+    for i, w in enumerate(words):
+        # Preserve short ALL-CAPS tokens (acronyms / numbers with letters)
+        letters = [c for c in w if c.isalpha()]
+        if letters and len(letters) <= 4 and all(c.isupper() for c in letters):
+            out.append(w)
+            continue
+        # First word → upper first letter, lower the rest
+        # Subsequent words → all lower (sentence case)
+        if i == 0:
+            if w and w[0].isalpha():
+                out.append(w[0].upper() + w[1:].lower())
+            else:
+                out.append(w)
+        else:
+            out.append(w.lower())
+    return " ".join(out)
 
-    Detected by checking whether the title has alphabetic characters AND all
-    of them are uppercase. Short titles (≤3 chars or all-numeric) are skipped
-    to avoid false positives on labels like 'P&L' or '2024'.
+
+def check_title_not_uppercase(slide: dict[str, Any]) -> dict[str, Any]:
+    """Flag titles that violate the consultancy casing convention.
+
+    The standard is **sentence case** (first word + proper nouns capitalized,
+    everything else lowercase). Both ALL CAPS and Title Case are flagged.
+
+    - ALL CAPS: ≥95% of alphabetic characters uppercase.
+    - Title Case: ≥75% of the 'significant' words (length ≥4 chars to skip
+      stopwords like 'el', 'la', 'en', 'de') start with a capital letter.
+
+    Short titles (≤3 alphabetic chars) are skipped to avoid false positives
+    on labels like 'P&L' or '2024'.
     """
     title = (slide.get("title") or "").strip()
     if not title:
         return {"applicable": False, "ok": True, "notes": "Sin título."}
 
-    # Count alphabetic chars; skip if not enough to judge
     alpha = [c for c in title if c.isalpha()]
     if len(alpha) <= 3:
         return {
@@ -320,29 +349,54 @@ def check_title_not_uppercase(slide: dict[str, Any]) -> dict[str, Any]:
         }
 
     upper_count = sum(1 for c in alpha if c.isupper())
-    # ≥95% of alphabetic chars uppercase → considered ALL CAPS
     pct_upper = upper_count / len(alpha)
-    is_all_caps = pct_upper >= 0.95
 
-    if not is_all_caps:
+    # 1) ALL CAPS
+    if pct_upper >= 0.95:
+        suggested = _to_sentence_case(title)
         return {
             "applicable": True,
-            "ok": True,
+            "ok": False,
             "title": title,
             "pct_upper": round(pct_upper, 2),
-            "notes": "Título en case apropiado (no todo mayúsculas).",
-            "suggestion": None,
+            "case_violation": "all_caps",
+            "notes": "Título todo en MAYÚSCULAS — la consultora usa sentence case.",
+            "suggestion": f'Reescribir en sentence case: "{suggested}".',
         }
 
-    # Suggest a sentence-case rewrite (preserve first letter capitalized)
-    suggested = title.capitalize()
+    # 2) TITLE CASE — most significant words start uppercase
+    words = title.split()
+    significant = [
+        w for w in words
+        if len(w) >= 4 and w[0].isalpha()
+    ]
+    if len(significant) >= 3:
+        cap_count = sum(1 for w in significant if w[0].isupper())
+        title_case_ratio = cap_count / len(significant)
+        if title_case_ratio >= 0.75:
+            suggested = _to_sentence_case(title)
+            return {
+                "applicable": True,
+                "ok": False,
+                "title": title,
+                "pct_upper": round(pct_upper, 2),
+                "title_case_ratio": round(title_case_ratio, 2),
+                "case_violation": "title_case",
+                "notes": (
+                    "Título en Title Case (cada palabra capitalizada) — la "
+                    "consultora usa sentence case (solo primera palabra + "
+                    "nombres propios)."
+                ),
+                "suggestion": f'Reescribir en sentence case: "{suggested}".',
+            }
+
     return {
         "applicable": True,
-        "ok": False,
+        "ok": True,
         "title": title,
         "pct_upper": round(pct_upper, 2),
-        "notes": "Título todo en MAYÚSCULAS — la convención de la consultora es sentence case / title case.",
-        "suggestion": f'Reescribir como sentence case: "{suggested}".',
+        "notes": "Título en sentence case.",
+        "suggestion": None,
     }
 
 

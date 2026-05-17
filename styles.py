@@ -2217,7 +2217,7 @@ def best_practices_html() -> str:
             "items": [
                 ("Pie de página en la esquina inferior izquierda", "Convención de la consultora: footer alineado a la esquina inferior-izquierda. Mismo texto, misma posición (top + left), misma altura en todas las slides de contenido."),
                 ("Fuente brand: ForFuture Sans", "Familia oficial de la consultora. Pesos disponibles: Light, Regular, Medium, Bold, Black (cada uno con italic). Cualquier otra familia es una rotura de brand."),
-                ("Títulos en sentence case / title case — NUNCA todo MAYÚSCULAS", "La convención de la consultora es sentence case ('Las ventas cayeron en Q3') o title case ('Las Ventas Cayeron en Q3'). Nunca 'LAS VENTAS CAYERON EN Q3' — se lee como grito y reduce legibilidad."),
+                ("Títulos en sentence case — NUNCA Title Case ni MAYÚSCULAS", "La consultora usa sentence case: solo la primera palabra y los nombres propios capitalizados. ✓ 'Las ventas cayeron 18% en Q3'. ✗ 'Las Ventas Cayeron 18% en Q3' (Title Case). ✗ 'LAS VENTAS CAYERON 18% EN Q3' (grito)."),
                 ("Mayúsculas consistentes en pie y secundarios", "Footer y subtítulos: todo title case, todo sentence case — sin mezcla entre slides."),
                 ("Jerarquía tipográfica clara", "Title, subtitle, body, caption — tamaños y pesos diferenciados pero consistentes."),
             ],
@@ -2887,11 +2887,17 @@ def slide_card_html(slide: dict, thumb_bytes: bytes | None = None) -> str:
             suggestion=ff.get("suggestion"),
         ))
 
-    # Title case — flag titles in ALL CAPS
+    # Casing — flag titles in ALL CAPS or Title Case (only sentence case OK)
     tc = slide.get("title_case") or {}
     if tc.get("applicable") and not tc.get("ok"):
+        violation = tc.get("case_violation")
+        row_label = (
+            "Título en MAYÚSCULAS" if violation == "all_caps"
+            else "Título en Title Case" if violation == "title_case"
+            else "Casing del título"
+        )
         rows.append(_checklist_row_html(
-            "✗", "fail", "Mayúsculas en título",
+            "✗", "fail", row_label,
             tc.get("notes", "—"),
             current=tc.get("title"),
             suggestion=tc.get("suggestion"),
