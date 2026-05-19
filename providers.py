@@ -20,6 +20,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import time
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -223,11 +224,33 @@ class ClaudeProvider(Provider):
 
     def __init__(self, api_key: str | None = None):
         import anthropic
+        self._anthropic = anthropic
         self.client = anthropic.Anthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
+
+    def _call_with_retry(self, fn, *, max_retries: int = 4, base_wait: float = 6.0):
+        """Call fn(), retrying on rate-limit (429) or transient server (5xx) errors.
+
+        Backoff: 6 s, 12 s, 24 s, 48 s (doubles each attempt).
+        On the last retry the exception propagates so the caller can surface it.
+        """
+        for attempt in range(max_retries + 1):
+            try:
+                return fn()
+            except self._anthropic.RateLimitError:
+                if attempt == max_retries:
+                    raise
+                wait = base_wait * (2 ** attempt)
+                time.sleep(wait)
+            except self._anthropic.APIStatusError as exc:
+                # Only retry transient server-side errors (5xx); client errors propagate
+                if attempt == max_retries or exc.status_code < 500:
+                    raise
+                wait = base_wait * (2 ** attempt)
+                time.sleep(wait)
 
     def analyze_slide(self, slide, file_name):
         user_msg = _build_slide_user_message(slide, file_name)
-        response = self.client.messages.create(
+        response = self._call_with_retry(lambda: self.client.messages.create(
             model=self.per_slide_model,
             max_tokens=2000,
             system=[
@@ -235,7 +258,7 @@ class ClaudeProvider(Provider):
             ],
             output_config={"format": {"type": "json_schema", "schema": PER_SLIDE_SCHEMA}},
             messages=[{"role": "user", "content": user_msg}],
-        )
+        ))
         text = next((b.text for b in response.content if b.type == "text"), "{}")
         parsed = json.loads(text)
         parsed["slide_number"] = slide["slide_number"]
@@ -244,7 +267,7 @@ class ClaudeProvider(Provider):
 
     def analyze_storyline(self, file_name, deck, findings):
         digest = _build_storyline_digest(file_name, deck, findings)
-        response = self.client.messages.create(
+        response = self._call_with_retry(lambda: self.client.messages.create(
             model=self.storyline_model,
             max_tokens=8000,
             thinking={"type": "adaptive"},
@@ -256,7 +279,7 @@ class ClaudeProvider(Provider):
                 {"type": "text", "text": STORYLINE_SYSTEM, "cache_control": {"type": "ephemeral"}}
             ],
             messages=[{"role": "user", "content": digest}],
-        )
+        ))
         text = next((b.text for b in response.content if b.type == "text"), "{}")
         parsed = json.loads(text)
         parsed["_usage"] = _normalize_usage_anthropic(response.usage)
@@ -321,7 +344,7 @@ class ClaudeProvider(Provider):
                     },
                 }
             )
-        response = self.client.messages.create(
+        response = self._call_with_retry(lambda: self.client.messages.create(
             model=self.visual_model,
             max_tokens=3000,
             thinking={"type": "adaptive"},
@@ -333,7 +356,7 @@ class ClaudeProvider(Provider):
                 {"type": "text", "text": VISUAL_SYSTEM, "cache_control": {"type": "ephemeral"}}
             ],
             messages=[{"role": "user", "content": content}],
-        )
+        ))
         text = next((b.text for b in response.content if b.type == "text"), "{}")
         parsed = json.loads(text)
         parsed["slide_number"] = slide_number

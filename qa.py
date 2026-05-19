@@ -19,6 +19,7 @@ Efficiency knobs:
 from __future__ import annotations
 
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Iterator
 
@@ -228,10 +229,25 @@ def _build_text_length_block(paragraphs: dict[str, Any]) -> dict[str, Any]:
     if paragraphs["ok"]:
         suggestion = None
     elif has_bullet_cand and n_long == 1:
-        suggestion = (
-            "Partí ese párrafo en bullets de 2-3 líneas, o reducilo a la "
-            "frase con el insight + 1-2 evidencias."
-        )
+        cand = paragraphs["bullet_candidates"][0]
+        cand_text = (cand.get("snippet") or "").strip()
+        # Split snippet into sentences and render a bulleted preview
+        sentences = [
+            s.strip()
+            for s in re.split(r"(?<=[.!?;])\s+", cand_text)
+            if len(s.strip()) >= 8
+        ]
+        if len(sentences) >= 2:
+            preview_lines = "\n".join(f"  • {s[:120]}" for s in sentences[:4])
+            suggestion = (
+                "Partí ese párrafo en bullets de 2-3 líneas. "
+                f"Versión sugerida:\n{preview_lines}"
+            )
+        else:
+            suggestion = (
+                "Partí ese párrafo en bullets de 2-3 líneas, o reducilo a la "
+                "frase con el insight + 1-2 evidencias."
+            )
     elif has_bullet_cand:
         suggestion = (
             f"{n_long} párrafos largos en placeholders de contenido. "
@@ -433,7 +449,7 @@ def run_full_qa(
     api_key: str | None = None,
     *,
     provider: str | Provider = "claude",
-    max_workers: int = 6,
+    max_workers: int = 3,
     skip_roles: set[str] | frozenset[str] | None = None,
     skip_slide_numbers: set[int] | frozenset[int] | None = None,
     visual_analysis: bool = False,

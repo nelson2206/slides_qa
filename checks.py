@@ -131,16 +131,29 @@ DEFAULT_MIN_FONT_PT = 9.0
 def check_min_font_size(
     slide: dict[str, Any],
     min_pt: float = DEFAULT_MIN_FONT_PT,
+    *,
+    slide_height_in: float | None = None,
 ) -> dict[str, Any]:
     """Flag shapes whose explicitly-set font size is below `min_pt`.
 
     Skips shapes with no explicit size (those inherit from the layout/master
     and are usually safe defaults). Skips the title shape.
+    Skips footer-zone shapes (bottom 18 % of slide, height < 0.7″) — pie-de-
+    página text legitimately uses smaller fonts (6–8 pt is common).
     """
+    bottom_threshold = slide_height_in * 0.82 if slide_height_in else None
     violations: list[dict[str, Any]] = []
     for shape in slide.get("shapes", []):
         if shape.get("is_title"):
             continue
+        # Footer-zone exclusion: shapes sitting in the bottom 18 % of the slide
+        # AND narrow height are treated as pie-de-página — skip them.
+        if bottom_threshold is not None:
+            top = shape.get("top_in")
+            height = shape.get("height_in")
+            if (top is not None and height is not None
+                    and top >= bottom_threshold and height < 0.7):
+                continue
         size = shape.get("min_font_size_pt")
         if size is None:
             continue
@@ -2166,7 +2179,7 @@ def run_deterministic_checks(file_name: str, deck: dict[str, Any]) -> dict[str, 
                 "role": classify_slide_role(slide, total_slides=total_slides),
                 "paragraphs": check_slide_paragraphs(slide),
                 "footer": check_footer(slide, slide_height_in),
-                "min_font_size": check_min_font_size(slide),
+                "min_font_size": check_min_font_size(slide, slide_height_in=slide_height_in),
                 "text_density": check_text_density(slide),
                 "font_family": check_font_family(slide),
                 "title_case": check_title_not_uppercase(slide),

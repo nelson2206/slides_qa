@@ -133,6 +133,24 @@ def _format_slide_findings(finding: dict[str, Any]) -> str:
         _block("Densidad de texto", td.get("notes", "—"),
                suggestion=td.get("suggestion"))
 
+    # Visual analysis (only present when image analysis mode is enabled)
+    visual = finding.get("visual") or {}
+    if visual and not visual.get("_error"):
+        vq = visual.get("visual_quality") or {}
+        if vq and not vq.get("ok"):
+            _block(
+                "Análisis visual",
+                vq.get("notes", "—"),
+                suggestion=vq.get("suggestion"),
+            )
+        vc = visual.get("visual_consistency") or {}
+        if vc and not vc.get("ok"):
+            _block(
+                "Consistencia visual",
+                vc.get("notes", "—"),
+                suggestion=vc.get("suggestion"),
+            )
+
     return _HOLMES_NOTES_HEADER + "\n".join(lines) + "\n"
 
 
@@ -178,7 +196,9 @@ def _format_overview_summary(result: dict[str, Any]) -> str:
     if cross:
         lines.append(f"Issues cross-slide ({len(cross)}):")
         for issue in cross:
-            nums = ", ".join(str(s) for s in issue.get("slide_numbers", []))
+            if not isinstance(issue, dict):
+                continue
+            nums = ", ".join(str(s) for s in (issue.get("slide_numbers") or []))
             lines.append(f"  · Slides {nums}: {issue.get('issue', '')}")
         lines.append("")
 
@@ -277,7 +297,10 @@ def export_annotated_pptx(deck_path: str, result: dict[str, Any]) -> bytes:
         finding = findings_by_num.get(i)
         if not finding:
             continue
-        block = _format_slide_findings(finding)
+        try:
+            block = _format_slide_findings(finding)
+        except Exception as exc:  # noqa: BLE001
+            block = f"\n[Holmes] Error generando notas para slide {i}: {exc}\n"
         # Preserve original notes if any
         notes_slide = slide.notes_slide
         existing = (notes_slide.notes_text_frame.text or "").strip()
