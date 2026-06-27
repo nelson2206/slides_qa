@@ -31,5 +31,10 @@ Thumbs.db
 ppt_thumbs_*/
 ppt_thumbs_lo_*/
 
+# Local cost-tracking DB (ephemeral; not versioned) + scratch files
+data/
+*.xlsx
+slide_dump.txt
+
 # Claude Code local settings (per-machine permission overrides)
 .claude/

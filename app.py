@@ -9,6 +9,7 @@ from pathlib import Path
 import streamlit as st
 
 import styles
+import cost_db
 from extractor import extract_deck, extract_images
 from keyloader import load_all_keys, mask
 from pricing import compare_providers, estimate_cost
@@ -38,6 +39,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 styles.inject()
+
+# Resolve a persistent browser id ASAP so the JS-localStorage probe fires on the
+# first render; by the time the user clicks "Correr" it's in session_state.
+_browser_id = cost_db.get_browser_id(st.session_state)
 
 # ---------------------------------------------------------------------------
 # Open Graph / social-share meta tags
@@ -749,10 +754,54 @@ if mode == "full":
 
 
 # ---------------------------------------------------------------------------
+# Registro de costos — código de proyecto (obligatorio) + usuario (opcional)
+# Cada ejecución se registra en la base de datos Excel con fecha, código de
+# proyecto e ID de navegador de quien la corrió.
+# ---------------------------------------------------------------------------
+
+styles.section_label("Registro de la ejecución")
+pc1, pc2 = st.columns([2, 2])
+with pc1:
+    project_code = st.text_input(
+        "Código de proyecto *",
+        value=st.session_state.get("project_code", ""),
+        placeholder="Ej: REPSOL-2026-001",
+        help="Obligatorio. Se guarda en la base de datos de costos junto con la fecha y el ID del navegador.",
+        key="project_code",
+    )
+with pc2:
+    user_label = st.text_input(
+        "Tu nombre / correo (opcional)",
+        value=st.session_state.get("user_label", ""),
+        placeholder="nombre@minsait.com",
+        key="user_label",
+    )
+_log_rows = cost_db.row_count()
+st.caption(
+    f"ID de navegador: `{_browser_id[:18]}…`  ·  "
+    f"{_log_rows:,} ejecución(es) registrada(s)"
+)
+if _log_rows:
+    _log_bytes = cost_db.read_log_bytes()
+    if _log_bytes:
+        st.download_button(
+            "Descargar base de costos (.xlsx)",
+            data=_log_bytes,
+            file_name="holmes_cost_log.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Run button
 # ---------------------------------------------------------------------------
 
-if mode == "local":
+has_project_code = bool((project_code or "").strip())
+
+if not has_project_code:
+    run_label = "Ingresá el código de proyecto para correr"
+elif mode == "local":
     run_label = "Correr análisis local"
 elif mode == "full" and api_key:
     run_label = (
@@ -762,7 +811,7 @@ elif mode == "full" and api_key:
 else:
     run_label = "Configurá la API key primero"
 
-can_run = (mode == "local") or (mode == "full" and api_key)
+can_run = has_project_code and ((mode == "local") or (mode == "full" and api_key))
 
 run_button = st.button(run_label, type="primary", use_container_width=True, disabled=not can_run)
 
@@ -918,6 +967,31 @@ if run_button:
     st.session_state["qa_result"] = result_obj
     st.session_state["qa_est"] = est
     st.session_state["qa_thumbs"] = thumbs
+
+    # ── Registrar la ejecución en la base de datos de costos ──────────────
+    # Una sola fila por corrida (gated por file_hash para no duplicar en el
+    # rerun forzado de más abajo). Nunca bloquea el flujo: si el log falla,
+    # se avisa pero el resultado igual se muestra.
+    _log_marker = f"_cost_logged__{file_hash}"
+    if not st.session_state.get(_log_marker):
+        try:
+            _scores = [s["score"] for s in result_obj.get("slides", [])
+                       if s.get("score") is not None]
+            _avg = sum(_scores) / len(_scores) if _scores else None
+            _record = cost_db.build_record(
+                project_code=project_code,
+                browser_id=_browser_id,
+                file_name=file_name,
+                result=result_obj,
+                est=est,
+                user_label=user_label,
+                avg_score=_avg,
+            )
+            cost_db.append_record(_record)
+            st.session_state[_log_marker] = True
+            st.toast(f"Ejecución registrada · proyecto {project_code.strip()}", icon="📝")
+        except Exception as _log_e:  # noqa: BLE001
+            st.warning(f"No se pudo registrar la ejecución en la base de costos: {_log_e}")
 
     # Force a rerun so the Acciones Holmes tab (which renders ABOVE the audit
     # flow and read session_state at the TOP of the script) picks up the new
