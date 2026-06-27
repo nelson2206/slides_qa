@@ -776,21 +776,38 @@ with pc2:
         placeholder="nombre@minsait.com",
         key="user_label",
     )
-_log_rows = cost_db.row_count()
-st.caption(
-    f"ID de navegador: `{_browser_id[:18]}…`  ·  "
-    f"{_log_rows:,} ejecución(es) registrada(s)"
-)
-if _log_rows:
-    _log_bytes = cost_db.read_log_bytes()
-    if _log_bytes:
-        st.download_button(
-            "Descargar base de costos (.xlsx)",
-            data=_log_bytes,
-            file_name="holmes_cost_log.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-        )
+
+# Webhook backend (Power Automate → SharePoint/OneDrive Excel). If a URL is
+# configured in secrets/env, every run POSTs its record there instead of the
+# local Excel. Reading st.secrets when no secrets file exists raises, so guard.
+try:
+    _cost_webhook = st.secrets.get("cost_webhook_url")  # type: ignore[attr-defined]
+except Exception:  # noqa: BLE001
+    _cost_webhook = None
+if not _cost_webhook:
+    _cost_webhook = cost_db.webhook_url_from_env()
+
+if _cost_webhook:
+    st.caption(
+        f"ID de navegador: `{_browser_id[:18]}…`  ·  "
+        "registrando en Excel corporativo (SharePoint) vía flujo Power Automate."
+    )
+else:
+    _log_rows = cost_db.row_count()
+    st.caption(
+        f"ID de navegador: `{_browser_id[:18]}…`  ·  "
+        f"{_log_rows:,} ejecución(es) registrada(s) (Excel local)"
+    )
+    if _log_rows:
+        _log_bytes = cost_db.read_log_bytes()
+        if _log_bytes:
+            st.download_button(
+                "Descargar base de costos (.xlsx)",
+                data=_log_bytes,
+                file_name="holmes_cost_log.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -987,7 +1004,7 @@ if run_button:
                 user_label=user_label,
                 avg_score=_avg,
             )
-            cost_db.append_record(_record)
+            cost_db.append_record(_record, webhook_url=_cost_webhook)
             st.session_state[_log_marker] = True
             st.toast(f"Ejecución registrada · proyecto {project_code.strip()}", icon="📝")
         except Exception as _log_e:  # noqa: BLE001

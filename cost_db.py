@@ -123,6 +123,35 @@ def get_browser_id(session_state: Any) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Remote backend — Power Automate / Logic Apps HTTP webhook
+# ---------------------------------------------------------------------------
+#
+# Writing to a corporate SharePoint/OneDrive Excel from an external web app
+# (Streamlit Cloud) can't be done with just the file URL — it needs an auth
+# bridge. The lowest-friction bridge in a Microsoft 365 tenant is a Power
+# Automate flow with a "When an HTTP request is received" trigger that maps the
+# posted JSON into an "Add a row into a table" (Excel Online) action.
+#
+# The app POSTs the flat `record` dict (keys = COLUMNS) as JSON to the flow URL.
+# Configure the URL via the COST_WEBHOOK_URL env var or st.secrets and pass it
+# through `append_record(..., webhook_url=...)`.
+
+def webhook_url_from_env() -> str | None:
+    return os.environ.get("COST_WEBHOOK_URL") or None
+
+
+def post_webhook(record: dict[str, Any], webhook_url: str, timeout: float = 15.0) -> None:
+    """POST a single record to a Power Automate / Logic Apps HTTP trigger.
+
+    Raises on network error or non-2xx so the caller can surface it.
+    """
+    import requests  # local import: keep module import cheap / optional dep
+
+    resp = requests.post(webhook_url, json=record, timeout=timeout)
+    resp.raise_for_status()
+
+
+# ---------------------------------------------------------------------------
 # Excel store
 # ---------------------------------------------------------------------------
 
@@ -137,17 +166,31 @@ def _ensure_workbook(path: Path) -> None:
     wb.save(path)
 
 
-def append_record(record: dict[str, Any], db_path: str | Path | None = None) -> Path:
-    """Append one execution record to the Excel cost log.
+def append_record(
+    record: dict[str, Any],
+    db_path: str | Path | None = None,
+    *,
+    webhook_url: str | None = None,
+) -> Path | None:
+    """Append one execution record to the cost log.
 
-    `record` is keyed by the names in COLUMNS; missing keys are written blank,
-    unknown keys are ignored. Returns the path written.
+    Backend selection:
+      - If `webhook_url` (or COST_WEBHOOK_URL env) is set → POST the record to
+        that Power Automate / Logic Apps flow, which writes the row into the
+        SharePoint/OneDrive Excel. Returns None (no local path).
+      - Otherwise → append to the local Excel workbook and return its path.
 
-    Concurrency: load → append → save with a few retries. Good enough for a
-    single machine / low write volume. For real multi-writer durability swap the
-    body of this function for a Google Sheets `append_row` call — that is the
-    ONLY place that touches the backend.
+    `record` is keyed by the names in COLUMNS; for the local backend missing
+    keys are written blank and unknown keys ignored.
+
+    Local concurrency: load → append → save with a few retries. Good enough for
+    a single machine / low write volume.
     """
+    webhook = webhook_url or webhook_url_from_env()
+    if webhook:
+        post_webhook(record, webhook)
+        return None
+
     path = Path(db_path) if db_path else default_db_path()
     row = [record.get(col, "") for col in COLUMNS]
 
