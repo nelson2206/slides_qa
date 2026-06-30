@@ -3,64 +3,70 @@
 Records one row per PPTX evaluation: project code, execution date, the browser
 (or machine) ID of whoever ran it, and the cost breakdown.
 
-Backend: an Excel workbook (.xlsx) via openpyxl. The path is configurable so the
-same code can point at a local file (dev) or a file the user supplies.
+Primary backend: a self-contained SQLite database (stdlib `sqlite3`, no server,
+no extra dependency). One file, ACID, queryable. Exports to .xlsx on demand for
+download / sharing.
+
+Optional backend: an HTTP webhook (Power Automate / Logic Apps) — if a URL is
+configured, each record is POSTed there instead of written locally. Useful to
+land rows in a corporate SharePoint/OneDrive Excel.
 
 IMPORTANT — Streamlit Cloud persistence caveat
 -----------------------------------------------
-Streamlit Cloud has an EPHEMERAL filesystem: a local .xlsx is wiped on every
-redeploy and is not shared between concurrent sessions. For durable, multi-user
-logging migrate `CostStore` to Google Sheets / a real DB (see `append_record`'s
-docstring for the single swap point). On a single machine (local run) the Excel
-backend persists normally.
+Streamlit Cloud has an EPHEMERAL filesystem: a local .db is wiped on every
+redeploy and is not shared between concurrent sessions. On a single machine
+(local run) it persists normally. For a durable cloud DB either point
+COST_DB_PATH at a persistent volume, use the webhook backend, or migrate the
+small surface in this module to a hosted DB (Postgres/Turso/Supabase).
 """
 
 from __future__ import annotations
 
 import os
-import time
+import sqlite3
 import uuid
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from openpyxl import Workbook, load_workbook
-
 # ---------------------------------------------------------------------------
-# Schema — column order IS the sheet layout. Add new fields at the END so
-# existing workbooks stay aligned.
+# Schema — (column name, SQLite type). Order IS the table/export layout.
+# Add new fields at the END so existing databases stay compatible.
 # ---------------------------------------------------------------------------
 
-COLUMNS: list[str] = [
-    "fecha_ejecucion",      # ISO local datetime, e.g. 2026-05-19 14:32:05
-    "codigo_proyecto",      # user-entered project code
-    "id_navegador",         # persistent browser id (or machine/session fallback)
-    "usuario",              # optional free-text label (name / email)
-    "archivo",              # deck file name
-    "modo",                 # "local" | "full"
-    "proveedor",            # "claude" | "openai" | "" (local)
-    "slides_total",
-    "slides_analizados",
-    "slides_skipped",
-    "score_promedio",
-    "costo_per_slide_usd",
-    "costo_storyline_usd",
-    "costo_visual_usd",
-    "costo_total_usd",
+_SCHEMA: list[tuple[str, str]] = [
+    ("fecha_ejecucion", "TEXT"),       # ISO local datetime, e.g. 2026-05-19 14:32:05
+    ("codigo_proyecto", "TEXT"),       # user-entered project code
+    ("id_navegador", "TEXT"),          # persistent browser id (or machine fallback)
+    ("usuario", "TEXT"),               # optional free-text label (name / email)
+    ("archivo", "TEXT"),               # deck file name
+    ("modo", "TEXT"),                  # "local" | "full"
+    ("proveedor", "TEXT"),             # "claude" | "openai" | "" (local)
+    ("slides_total", "INTEGER"),
+    ("slides_analizados", "INTEGER"),
+    ("slides_skipped", "INTEGER"),
+    ("score_promedio", "REAL"),
+    ("costo_per_slide_usd", "REAL"),
+    ("costo_storyline_usd", "REAL"),
+    ("costo_visual_usd", "REAL"),
+    ("costo_total_usd", "REAL"),
 ]
 
-_SHEET_NAME = "ejecuciones"
+COLUMNS: list[str] = [name for name, _ in _SCHEMA]
+_NUMERIC_COLS = {name for name, typ in _SCHEMA if typ in ("INTEGER", "REAL")}
+_TABLE = "ejecuciones"
 
 
 def default_db_path() -> Path:
     """Resolve the cost-DB path.
 
-    Priority: COST_DB_PATH env var → ./data/cost_log.xlsx next to this module.
+    Priority: COST_DB_PATH env var → ./data/cost_log.db next to this module.
     """
     env = os.environ.get("COST_DB_PATH")
     if env:
         return Path(env)
-    return Path(__file__).parent / "data" / "cost_log.xlsx"
+    return Path(__file__).parent / "data" / "cost_log.db"
 
 
 # ---------------------------------------------------------------------------
@@ -84,8 +90,7 @@ def get_browser_id(session_state: Any) -> str:
       2. Read/create a UUID in the browser's localStorage via streamlit-js-eval.
          The component returns None on its first render (then triggers a rerun);
          we persist the value the moment it arrives.
-      3. Fall back to a per-machine id (local runs) or a per-session UUID so the
-         logger never blocks on a missing id.
+      3. Fall back to a per-machine id (local runs) so the logger never blocks.
     """
     cached = session_state.get("_holmes_browser_id")
     if cached:
@@ -112,9 +117,6 @@ def get_browser_id(session_state: Any) -> str:
         session_state["_holmes_browser_id"] = browser_id
         return browser_id
 
-    # Component hasn't answered yet (returns None on first render) or is absent.
-    # Use a stable fallback so we always have *something* to log, but don't
-    # cache it as the browser id so a later real value can still win.
     fallback = session_state.get("_holmes_fallback_id")
     if not fallback:
         fallback = _machine_fallback_id()
@@ -123,28 +125,15 @@ def get_browser_id(session_state: Any) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Remote backend — Power Automate / Logic Apps HTTP webhook
+# Optional remote backend — Power Automate / Logic Apps HTTP webhook
 # ---------------------------------------------------------------------------
-#
-# Writing to a corporate SharePoint/OneDrive Excel from an external web app
-# (Streamlit Cloud) can't be done with just the file URL — it needs an auth
-# bridge. The lowest-friction bridge in a Microsoft 365 tenant is a Power
-# Automate flow with a "When an HTTP request is received" trigger that maps the
-# posted JSON into an "Add a row into a table" (Excel Online) action.
-#
-# The app POSTs the flat `record` dict (keys = COLUMNS) as JSON to the flow URL.
-# Configure the URL via the COST_WEBHOOK_URL env var or st.secrets and pass it
-# through `append_record(..., webhook_url=...)`.
 
 def webhook_url_from_env() -> str | None:
     return os.environ.get("COST_WEBHOOK_URL") or None
 
 
 def post_webhook(record: dict[str, Any], webhook_url: str, timeout: float = 15.0) -> None:
-    """POST a single record to a Power Automate / Logic Apps HTTP trigger.
-
-    Raises on network error or non-2xx so the caller can surface it.
-    """
+    """POST a single record (JSON) to an HTTP trigger. Raises on non-2xx."""
     import requests  # local import: keep module import cheap / optional dep
 
     resp = requests.post(webhook_url, json=record, timeout=timeout)
@@ -152,18 +141,27 @@ def post_webhook(record: dict[str, Any], webhook_url: str, timeout: float = 15.0
 
 
 # ---------------------------------------------------------------------------
-# Excel store
+# SQLite store
 # ---------------------------------------------------------------------------
 
-def _ensure_workbook(path: Path) -> None:
-    if path.exists():
-        return
+def _connect(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
-    wb = Workbook()
-    ws = wb.active
-    ws.title = _SHEET_NAME
-    ws.append(COLUMNS)
-    wb.save(path)
+    conn = sqlite3.connect(str(path), timeout=10.0)
+    conn.execute("PRAGMA journal_mode=WAL;")  # better concurrent read/write
+    cols_ddl = ",\n  ".join(f'"{name}" {typ}' for name, typ in _SCHEMA)
+    conn.execute(
+        f'CREATE TABLE IF NOT EXISTS {_TABLE} (\n'
+        f'  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  {cols_ddl}\n)'
+    )
+    conn.commit()
+    return conn
+
+
+def _coerce(col: str, value: Any) -> Any:
+    """Empty strings in numeric columns become NULL; numbers stay numbers."""
+    if col in _NUMERIC_COLS and (value == "" or value is None):
+        return None
+    return value
 
 
 def append_record(
@@ -172,19 +170,15 @@ def append_record(
     *,
     webhook_url: str | None = None,
 ) -> Path | None:
-    """Append one execution record to the cost log.
+    """Append one execution record to the cost database.
 
     Backend selection:
       - If `webhook_url` (or COST_WEBHOOK_URL env) is set → POST the record to
-        that Power Automate / Logic Apps flow, which writes the row into the
-        SharePoint/OneDrive Excel. Returns None (no local path).
-      - Otherwise → append to the local Excel workbook and return its path.
+        that flow and return None.
+      - Otherwise → INSERT into the local SQLite DB and return its path.
 
-    `record` is keyed by the names in COLUMNS; for the local backend missing
-    keys are written blank and unknown keys ignored.
-
-    Local concurrency: load → append → save with a few retries. Good enough for
-    a single machine / low write volume.
+    `record` is keyed by the names in COLUMNS; missing keys store NULL/blank,
+    unknown keys are ignored.
     """
     webhook = webhook_url or webhook_url_from_env()
     if webhook:
@@ -192,23 +186,19 @@ def append_record(
         return None
 
     path = Path(db_path) if db_path else default_db_path()
-    row = [record.get(col, "") for col in COLUMNS]
+    placeholders = ", ".join("?" for _ in COLUMNS)
+    col_list = ", ".join(f'"{c}"' for c in COLUMNS)
+    values = [_coerce(c, record.get(c, None)) for c in COLUMNS]
 
-    last_err: Exception | None = None
-    for attempt in range(5):
-        try:
-            _ensure_workbook(path)
-            wb = load_workbook(path)
-            ws = wb[_SHEET_NAME] if _SHEET_NAME in wb.sheetnames else wb.active
-            ws.append(row)
-            wb.save(path)
-            return path
-        except (PermissionError, OSError) as exc:  # file locked / open in Excel
-            last_err = exc
-            time.sleep(0.4 * (attempt + 1))
-    raise RuntimeError(
-        f"No se pudo escribir el registro de costos en {path}: {last_err}"
-    )
+    conn = _connect(path)
+    try:
+        conn.execute(
+            f"INSERT INTO {_TABLE} ({col_list}) VALUES ({placeholders})", values
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return path
 
 
 def build_record(
@@ -241,7 +231,7 @@ def build_record(
         "slides_total": len(slides),
         "slides_analizados": analyzed,
         "slides_skipped": skipped,
-        "score_promedio": (round(avg_score, 2) if avg_score is not None else ""),
+        "score_promedio": (round(avg_score, 2) if avg_score is not None else None),
         "costo_per_slide_usd": round(ac.get("per_slide_usd", 0.0), 6),
         "costo_storyline_usd": round(ac.get("storyline_usd", 0.0), 6),
         "costo_visual_usd": round(ac.get("visual_usd", 0.0), 6),
@@ -249,24 +239,82 @@ def build_record(
     }
 
 
-def read_log_bytes(db_path: str | Path | None = None) -> bytes | None:
-    """Return the raw .xlsx bytes for download, or None if no log exists yet."""
-    path = Path(db_path) if db_path else default_db_path()
-    if not path.exists():
-        return None
-    return path.read_bytes()
-
+# ---------------------------------------------------------------------------
+# Reads / exports
+# ---------------------------------------------------------------------------
 
 def row_count(db_path: str | Path | None = None) -> int:
-    """Number of logged executions (data rows, excluding the header)."""
+    """Number of logged executions."""
     path = Path(db_path) if db_path else default_db_path()
     if not path.exists():
         return 0
     try:
-        wb = load_workbook(path, read_only=True)
-        ws = wb[_SHEET_NAME] if _SHEET_NAME in wb.sheetnames else wb.active
-        n = max(0, ws.max_row - 1)
-        wb.close()
-        return n
-    except Exception:  # noqa: BLE001
+        conn = sqlite3.connect(str(path), timeout=10.0)
+        try:
+            cur = conn.execute(f"SELECT COUNT(*) FROM {_TABLE}")
+            return int(cur.fetchone()[0])
+        finally:
+            conn.close()
+    except sqlite3.Error:
         return 0
+
+
+def fetch_rows(
+    db_path: str | Path | None = None, limit: int | None = None
+) -> list[dict[str, Any]]:
+    """Return logged rows (newest first), each as a COLUMNS-keyed dict."""
+    path = Path(db_path) if db_path else default_db_path()
+    if not path.exists():
+        return []
+    conn = sqlite3.connect(str(path), timeout=10.0)
+    try:
+        col_list = ", ".join(f'"{c}"' for c in COLUMNS)
+        sql = f"SELECT {col_list} FROM {_TABLE} ORDER BY id DESC"
+        if limit:
+            sql += f" LIMIT {int(limit)}"
+        cur = conn.execute(sql)
+        return [dict(zip(COLUMNS, row)) for row in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def total_cost_usd(db_path: str | Path | None = None) -> float:
+    """Sum of costo_total_usd across all executions."""
+    path = Path(db_path) if db_path else default_db_path()
+    if not path.exists():
+        return 0.0
+    try:
+        conn = sqlite3.connect(str(path), timeout=10.0)
+        try:
+            cur = conn.execute(
+                f"SELECT COALESCE(SUM(costo_total_usd), 0) FROM {_TABLE}"
+            )
+            return float(cur.fetchone()[0] or 0.0)
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return 0.0
+
+
+def export_xlsx_bytes(db_path: str | Path | None = None) -> bytes | None:
+    """Export the whole DB to an .xlsx in memory for download. None if empty."""
+    rows = fetch_rows(db_path)
+    if not rows:
+        return None
+    from openpyxl import Workbook  # local import: only needed for export
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = _TABLE
+    ws.append(COLUMNS)
+    # fetch_rows returns newest-first; export oldest-first for readability
+    for r in reversed(rows):
+        ws.append([r.get(c) for c in COLUMNS])
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+# Backwards-compatible alias (app.py previously called read_log_bytes)
+def read_log_bytes(db_path: str | Path | None = None) -> bytes | None:
+    return export_xlsx_bytes(db_path)

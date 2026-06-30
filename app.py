@@ -790,24 +790,28 @@ if not _cost_webhook:
 if _cost_webhook:
     st.caption(
         f"ID de navegador: `{_browser_id[:18]}…`  ·  "
-        "registrando en Excel corporativo (SharePoint) vía flujo Power Automate."
+        "registrando vía flujo HTTP (Power Automate)."
     )
 else:
     _log_rows = cost_db.row_count()
+    _log_total = cost_db.total_cost_usd()
     st.caption(
         f"ID de navegador: `{_browser_id[:18]}…`  ·  "
-        f"{_log_rows:,} ejecución(es) registrada(s) (Excel local)"
+        f"{_log_rows:,} ejecución(es) en la base  ·  "
+        f"acumulado \\${_log_total:.3f}"
     )
     if _log_rows:
-        _log_bytes = cost_db.read_log_bytes()
-        if _log_bytes:
-            st.download_button(
-                "Descargar base de costos (.xlsx)",
-                data=_log_bytes,
-                file_name="holmes_cost_log.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
+        with st.expander(f"Ver base de datos de costos ({_log_rows:,} registros)"):
+            st.dataframe(cost_db.fetch_rows(limit=200), use_container_width=True)
+            _log_bytes = cost_db.read_log_bytes()
+            if _log_bytes:
+                st.download_button(
+                    "Descargar base de costos (.xlsx)",
+                    data=_log_bytes,
+                    file_name="holmes_cost_log.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
 
 
 # ---------------------------------------------------------------------------

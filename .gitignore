@@ -34,6 +34,9 @@ ppt_thumbs_lo_*/
 # Local cost-tracking DB (ephemeral; not versioned) + scratch files
 data/
 *.xlsx
+*.db
+*.db-wal
+*.db-shm
 slide_dump.txt
 
 # Claude Code local settings (per-machine permission overrides)
