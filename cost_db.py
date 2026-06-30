@@ -141,7 +141,41 @@ def post_webhook(record: dict[str, Any], webhook_url: str, timeout: float = 15.0
 
 
 # ---------------------------------------------------------------------------
-# SQLite store
+# Hosted Postgres backend (persistent across Streamlit Cloud redeploys)
+# ---------------------------------------------------------------------------
+#
+# Set COST_DATABASE_URL (or DATABASE_URL), or pass dsn=... explicitly, to a
+# Postgres connection string and every read/write targets that DB instead of
+# the local SQLite file. Get a free instance from Neon / Supabase and paste the
+# pooled connection string. The DSN must include sslmode=require for those.
+
+_PG_TYPE = {"TEXT": "TEXT", "INTEGER": "INTEGER", "REAL": "DOUBLE PRECISION"}
+
+
+def dsn_from_env() -> str | None:
+    return os.environ.get("COST_DATABASE_URL") or os.environ.get("DATABASE_URL") or None
+
+
+def _is_postgres(dsn: str | None) -> bool:
+    return bool(dsn) and dsn.split(":", 1)[0] in ("postgres", "postgresql")
+
+
+def _pg_connect(dsn: str):
+    import psycopg2  # local import: optional dep, only when a DSN is configured
+
+    conn = psycopg2.connect(dsn, connect_timeout=10)
+    cols_ddl = ",\n  ".join(f'"{name}" {_PG_TYPE[typ]}' for name, typ in _SCHEMA)
+    with conn.cursor() as cur:
+        cur.execute(
+            f'CREATE TABLE IF NOT EXISTS {_TABLE} (\n'
+            f'  id BIGSERIAL PRIMARY KEY,\n  {cols_ddl}\n)'
+        )
+    conn.commit()
+    return conn
+
+
+# ---------------------------------------------------------------------------
+# Local SQLite store
 # ---------------------------------------------------------------------------
 
 def _connect(path: Path) -> sqlite3.Connection:
@@ -164,22 +198,45 @@ def _coerce(col: str, value: Any) -> Any:
     return value
 
 
+def _resolve_dsn(dsn: str | None) -> str | None:
+    return dsn or dsn_from_env()
+
+
 def append_record(
     record: dict[str, Any],
     db_path: str | Path | None = None,
     *,
     webhook_url: str | None = None,
+    dsn: str | None = None,
 ) -> Path | None:
     """Append one execution record to the cost database.
 
-    Backend selection:
-      - If `webhook_url` (or COST_WEBHOOK_URL env) is set → POST the record to
-        that flow and return None.
-      - Otherwise → INSERT into the local SQLite DB and return its path.
+    Backend selection (in order):
+      1. `dsn` / COST_DATABASE_URL set → INSERT into hosted Postgres. Returns None.
+      2. `webhook_url` / COST_WEBHOOK_URL set → POST the record. Returns None.
+      3. Otherwise → INSERT into the local SQLite DB and return its path.
 
     `record` is keyed by the names in COLUMNS; missing keys store NULL/blank,
     unknown keys are ignored.
     """
+    dsn = _resolve_dsn(dsn)
+    col_list = ", ".join(f'"{c}"' for c in COLUMNS)
+    values = [_coerce(c, record.get(c, None)) for c in COLUMNS]
+
+    if _is_postgres(dsn):
+        placeholders = ", ".join("%s" for _ in COLUMNS)
+        conn = _pg_connect(dsn)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"INSERT INTO {_TABLE} ({col_list}) VALUES ({placeholders})",
+                    values,
+                )
+            conn.commit()
+        finally:
+            conn.close()
+        return None
+
     webhook = webhook_url or webhook_url_from_env()
     if webhook:
         post_webhook(record, webhook)
@@ -187,9 +244,6 @@ def append_record(
 
     path = Path(db_path) if db_path else default_db_path()
     placeholders = ", ".join("?" for _ in COLUMNS)
-    col_list = ", ".join(f'"{c}"' for c in COLUMNS)
-    values = [_coerce(c, record.get(c, None)) for c in COLUMNS]
-
     conn = _connect(path)
     try:
         conn.execute(
@@ -243,8 +297,21 @@ def build_record(
 # Reads / exports
 # ---------------------------------------------------------------------------
 
-def row_count(db_path: str | Path | None = None) -> int:
+def row_count(db_path: str | Path | None = None, *, dsn: str | None = None) -> int:
     """Number of logged executions."""
+    dsn = _resolve_dsn(dsn)
+    if _is_postgres(dsn):
+        try:
+            conn = _pg_connect(dsn)
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(f"SELECT COUNT(*) FROM {_TABLE}")
+                    return int(cur.fetchone()[0])
+            finally:
+                conn.close()
+        except Exception:  # noqa: BLE001
+            return 0
+
     path = Path(db_path) if db_path else default_db_path()
     if not path.exists():
         return 0
@@ -260,35 +327,65 @@ def row_count(db_path: str | Path | None = None) -> int:
 
 
 def fetch_rows(
-    db_path: str | Path | None = None, limit: int | None = None
+    db_path: str | Path | None = None,
+    limit: int | None = None,
+    *,
+    dsn: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return logged rows (newest first), each as a COLUMNS-keyed dict."""
+    dsn = _resolve_dsn(dsn)
+    col_list = ", ".join(f'"{c}"' for c in COLUMNS)
+    sql = f"SELECT {col_list} FROM {_TABLE} ORDER BY id DESC"
+    if limit:
+        sql += f" LIMIT {int(limit)}"
+
+    if _is_postgres(dsn):
+        try:
+            conn = _pg_connect(dsn)
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(sql)
+                    return [dict(zip(COLUMNS, row)) for row in cur.fetchall()]
+            finally:
+                conn.close()
+        except Exception:  # noqa: BLE001
+            return []
+
     path = Path(db_path) if db_path else default_db_path()
     if not path.exists():
         return []
     conn = sqlite3.connect(str(path), timeout=10.0)
     try:
-        col_list = ", ".join(f'"{c}"' for c in COLUMNS)
-        sql = f"SELECT {col_list} FROM {_TABLE} ORDER BY id DESC"
-        if limit:
-            sql += f" LIMIT {int(limit)}"
         cur = conn.execute(sql)
         return [dict(zip(COLUMNS, row)) for row in cur.fetchall()]
     finally:
         conn.close()
 
 
-def total_cost_usd(db_path: str | Path | None = None) -> float:
+def total_cost_usd(db_path: str | Path | None = None, *, dsn: str | None = None) -> float:
     """Sum of costo_total_usd across all executions."""
+    dsn = _resolve_dsn(dsn)
+    sql = f"SELECT COALESCE(SUM(costo_total_usd), 0) FROM {_TABLE}"
+
+    if _is_postgres(dsn):
+        try:
+            conn = _pg_connect(dsn)
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(sql)
+                    return float(cur.fetchone()[0] or 0.0)
+            finally:
+                conn.close()
+        except Exception:  # noqa: BLE001
+            return 0.0
+
     path = Path(db_path) if db_path else default_db_path()
     if not path.exists():
         return 0.0
     try:
         conn = sqlite3.connect(str(path), timeout=10.0)
         try:
-            cur = conn.execute(
-                f"SELECT COALESCE(SUM(costo_total_usd), 0) FROM {_TABLE}"
-            )
+            cur = conn.execute(sql)
             return float(cur.fetchone()[0] or 0.0)
         finally:
             conn.close()
@@ -296,9 +393,11 @@ def total_cost_usd(db_path: str | Path | None = None) -> float:
         return 0.0
 
 
-def export_xlsx_bytes(db_path: str | Path | None = None) -> bytes | None:
+def export_xlsx_bytes(
+    db_path: str | Path | None = None, *, dsn: str | None = None
+) -> bytes | None:
     """Export the whole DB to an .xlsx in memory for download. None if empty."""
-    rows = fetch_rows(db_path)
+    rows = fetch_rows(db_path, dsn=dsn)
     if not rows:
         return None
     from openpyxl import Workbook  # local import: only needed for export
@@ -316,5 +415,7 @@ def export_xlsx_bytes(db_path: str | Path | None = None) -> bytes | None:
 
 
 # Backwards-compatible alias (app.py previously called read_log_bytes)
-def read_log_bytes(db_path: str | Path | None = None) -> bytes | None:
-    return export_xlsx_bytes(db_path)
+def read_log_bytes(
+    db_path: str | Path | None = None, *, dsn: str | None = None
+) -> bytes | None:
+    return export_xlsx_bytes(db_path, dsn=dsn)

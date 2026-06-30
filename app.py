@@ -777,17 +777,38 @@ with pc2:
         key="user_label",
     )
 
-# Webhook backend (Power Automate → SharePoint/OneDrive Excel). If a URL is
-# configured in secrets/env, every run POSTs its record there instead of the
-# local Excel. Reading st.secrets when no secrets file exists raises, so guard.
-try:
-    _cost_webhook = st.secrets.get("cost_webhook_url")  # type: ignore[attr-defined]
-except Exception:  # noqa: BLE001
-    _cost_webhook = None
-if not _cost_webhook:
-    _cost_webhook = cost_db.webhook_url_from_env()
+# Backend selection. Reading st.secrets when no secrets file exists raises,
+# so guard. Priority: hosted Postgres (persists on Streamlit Cloud) → webhook →
+# local SQLite (default, ephemeral on Cloud).
+def _secret(name: str):
+    try:
+        return st.secrets.get(name)  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001
+        return None
 
-if _cost_webhook:
+_cost_dsn = _secret("cost_database_url") or _secret("database_url") or cost_db.dsn_from_env()
+_cost_webhook = _secret("cost_webhook_url") or cost_db.webhook_url_from_env()
+
+if _cost_dsn:
+    _log_rows = cost_db.row_count(dsn=_cost_dsn)
+    _log_total = cost_db.total_cost_usd(dsn=_cost_dsn)
+    st.caption(
+        f"ID de navegador: `{_browser_id[:18]}…`  ·  Postgres  ·  "
+        f"{_log_rows:,} ejecución(es) en la base  ·  acumulado \\${_log_total:.3f}"
+    )
+    if _log_rows:
+        with st.expander(f"Ver base de datos de costos ({_log_rows:,} registros)"):
+            st.dataframe(cost_db.fetch_rows(limit=200, dsn=_cost_dsn), use_container_width=True)
+            _log_bytes = cost_db.read_log_bytes(dsn=_cost_dsn)
+            if _log_bytes:
+                st.download_button(
+                    "Descargar base de costos (.xlsx)",
+                    data=_log_bytes,
+                    file_name="holmes_cost_log.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+elif _cost_webhook:
     st.caption(
         f"ID de navegador: `{_browser_id[:18]}…`  ·  "
         "registrando vía flujo HTTP (Power Automate)."
@@ -796,7 +817,7 @@ else:
     _log_rows = cost_db.row_count()
     _log_total = cost_db.total_cost_usd()
     st.caption(
-        f"ID de navegador: `{_browser_id[:18]}…`  ·  "
+        f"ID de navegador: `{_browser_id[:18]}…`  ·  SQLite local  ·  "
         f"{_log_rows:,} ejecución(es) en la base  ·  "
         f"acumulado \\${_log_total:.3f}"
     )
@@ -1008,7 +1029,7 @@ if run_button:
                 user_label=user_label,
                 avg_score=_avg,
             )
-            cost_db.append_record(_record, webhook_url=_cost_webhook)
+            cost_db.append_record(_record, webhook_url=_cost_webhook, dsn=_cost_dsn)
             st.session_state[_log_marker] = True
             st.toast(f"Ejecución registrada · proyecto {project_code.strip()}", icon="📝")
         except Exception as _log_e:  # noqa: BLE001
