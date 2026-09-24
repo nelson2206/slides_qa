@@ -214,13 +214,13 @@ class Provider(ABC):
 class ClaudeProvider(Provider):
     name = "claude"
     per_slide_model = "claude-sonnet-4-6"
-    storyline_model = "claude-opus-4-7"
-    visual_model = "claude-opus-4-7"
+    storyline_model = "claude-opus-5-5"
+    visual_model = "claude-opus-5-5"
 
     # USD per 1M tokens
     pricing_per_slide = {"input": 3.00, "output": 15.00, "cache_read": 0.30, "cache_write": 3.75}
-    pricing_storyline = {"input": 5.00, "output": 25.00, "cache_read": 0.50, "cache_write": 6.25}
-    pricing_visual    = {"input": 5.00, "output": 25.00, "cache_read": 0.50, "cache_write": 6.25}
+    pricing_storyline = {"input": 4.00, "output": 20.00, "cache_read": 0.20, "cache_write": 5.00}
+    pricing_visual    = {"input": 4.00, "output": 20.00, "cache_read": 0.20, "cache_write": 5.00}
 
     def __init__(self, api_key: str | None = None):
         import anthropic
@@ -269,7 +269,7 @@ class ClaudeProvider(Provider):
         digest = _build_storyline_digest(file_name, deck, findings)
         response = self._call_with_retry(lambda: self.client.messages.create(
             model=self.storyline_model,
-            max_tokens=8000,
+            max_tokens=16000,
             thinking={"type": "adaptive"},
             output_config={
                 "effort": "high",
@@ -346,7 +346,7 @@ class ClaudeProvider(Provider):
             )
         response = self._call_with_retry(lambda: self.client.messages.create(
             model=self.visual_model,
-            max_tokens=3000,
+            max_tokens=8000,
             thinking={"type": "adaptive"},
             output_config={
                 "effort": "medium",
